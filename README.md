@@ -1,19 +1,21 @@
 # 🪝 `captain-hook`
 
-> **The Agent Skill & Claude Plugin for writing, scaffolding, and configuring lifecycle hooks across AI coding agents.**
+> **The Universal Agent Skill & Claude Plugin for Navigating AI Coding Agent Hooks.**
 
 ![Captain Hook AI Agent Infinity Gauntlet](assets/captain_hook_gauntlet.jpg)
 
-`captain-hook` is an open-source Agent Skill and Claude Plugin that teaches AI agents and developers how to design, write, scaffold, and configure native lifecycle hooks for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue CLI, Roo Code, OpenHands, Copilot, and Amazon Q).
+`captain-hook` is an open-source Agent Skill and Claude Plugin that equips AI agents and developers to command, write, scaffold, and configure native lifecycle hooks for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue CLI, Roo Code, OpenHands, Copilot, and Amazon Q).
 
 ---
 
-## 💡 The Pain Point & Solution
+## ⛵ Navigating the High Seas of AI Agent Hooks
 
-- **The Pain Point**: Lifecycle hooks are the single most powerful tool for deterministic security guardrails, command sandboxing, and quality gates in AI coding. However, unlike open skill standards, **every AI coding agent uses completely different, constantly changing hook specifications**, configuration schemas, JSON payload shapes, and exit code semantics.
-- **The Solution**: `captain-hook` organizes all this fragmented information into one unified handbook, scaffolding library, and verification suite—saving developers and AI agents from searching the open sea of documentation for each individual agent.
+- **The Pain Point**: Lifecycle hooks are a captain's most powerful weapon for deterministic security guardrails, command sandboxing, and quality gates in AI coding. However, unlike open skill standards, **every AI coding agent uses completely different, constantly changing hook specifications**, configuration schemas, JSON payload shapes, and exit code semantics.
+- **The Solution**: `captain-hook` chart-maps all this fragmented information into one unified handbook, scaffolding library, and verification suite—saving developers and AI agents from drifting lost in the open sea of documentation for each individual agent.
 
-## 📦 Installation & Setup
+---
+
+## ⚓ Boarding the Ship (Installation & Setup)
 
 ### 1. Install as a Claude Plugin
 
@@ -23,29 +25,29 @@ Install `captain-hook` directly into Claude Code or compatible AI agent environm
 /plugin install shmulc8/captain-hook
 ```
 
-### 2. Manual Clone
+### 2. Manual Clone & Local Verification
 
 ```bash
 git clone https://github.com/shmulc8/captain-hook.git
 cd captain-hook
 
-# Test your project's hook scripts using the included verification suite
+# Run local hook verification suite before setting sail
 ./skills/captain-hook/scripts/verify_hooks.sh
 ```
 
 ---
 
-## 🌟 What `captain-hook` Provides
+## 🏴‍☠️ What Lies in the Treasure Chest
 
 - 📚 **Handbook & Guide (`SKILL.md`)**: Complete instructions on hook fundamentals, event lifecycles, stdin/stdout JSON contracts, and exit code blocking protocols (`0` ALLOW, `2` BLOCK).
-- 🌐 **Exhaustive 10-Agent Specifications (`references/specs/`)**: Self-contained, live-verified specification guides cross-referenced with official documentation.
-- 🧪 **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Command Sandboxing, Symlink Guards, Auto-Formatting, and Test Gates.
+- 🧭 **Exhaustive 10-Agent Specifications (`references/specs/`)**: Self-contained, live-verified specification guides cross-referenced with official documentation.
+- 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Command Sandboxing, Symlink Guards, Auto-Formatting, and Test Gates.
 - 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `hooks/prevent.py`.
 - 🛠️ **Local Verification Suite (`scripts/verify_hooks.sh`)**: Test runner script that pipes sample JSON payloads to `stdin` to test your hook scripts locally before deploying.
 
 ---
 
-## 🌐 Complete 10-Agent Specification Library
+## 🧭 Captain's Navigation Chart (10-Agent Specs)
 
 | AI Coding Agent | Config File Location | Specification Guide |
 | :--- | :--- | :--- |
@@ -62,7 +64,7 @@ cd captain-hook
 
 ---
 
-## 📂 Repository Layout
+## 🗺️ Ship Manifest & Repository Layout
 
 ```text
 captain-hook/
