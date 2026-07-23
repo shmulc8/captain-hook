@@ -1,10 +1,10 @@
 # 🪝 `captain-hook`
 
-> **The Agent Skill & Plugin that helps developers and AI agents write, scaffold, audit, and manage native lifecycle hooks across AI coding agents.**
+> **The Agent Skill & Claude Plugin for writing, scaffolding, and configuring lifecycle hooks across AI coding agents.**
 
 ![Captain Hook AI Agent Infinity Gauntlet](assets/captain_hook_gauntlet.jpg)
 
-`captain-hook` is an open-source Claude Plugin and Agent Skill providing exhaustive specifications, scaffolding templates, executable reference scripts, and security guardrail patterns for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, OpenHands, Copilot, Amazon Q).
+`captain-hook` is an open-source Agent Skill and Claude Plugin that teaches AI agents and developers how to design, write, scaffold, and configure native lifecycle hooks for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue CLI, Roo Code, OpenHands, Copilot, and Amazon Q).
 
 ---
 
@@ -12,37 +12,35 @@
 
 ### 1. Install as a Claude Plugin
 
-To install `captain-hook` directly inside Claude Code or compatible AI plugin environments:
+Install `captain-hook` directly into Claude Code or compatible AI agent environments:
 
 ```bash
 /plugin install shmulc8/captain-hook
 ```
 
-### 2. Manual Clone & Verification
+### 2. Manual Clone
 
 ```bash
 git clone https://github.com/shmulc8/captain-hook.git
 cd captain-hook
 
-# Run local hook verification suite
+# Test your project's hook scripts using the included verification suite
 ./skills/captain-hook/scripts/verify_hooks.sh
 ```
 
 ---
 
-## 🌟 Features & Guardrails
+## 🌟 What `captain-hook` Provides
 
-- 🔒 **Secret & Token Leak Scanner**: Intercepts AWS keys, GitHub PATs, OpenAI/Anthropic API keys, and SSH Private Keys in prompts, file edits, or terminal commands.
-- 🛡️ **Command Sandbox**: Blocks destructive commands (`rm -rf`, `git push --force`, `dd`, `chmod 777`) before execution.
-- 🔗 **Symlink Write Guard**: Prevents out-of-tree file clobbering through symlinks.
-- 🧹 **Code Auto-Formatter**: Automatically runs `prettier` or `ruff` post-write.
-- 🧪 **Verification Runner**: Test project hook scripts locally against mock `stdin` JSON payloads before going live.
+- 📚 **Handbook & Guide (`SKILL.md`)**: Complete instructions on hook fundamentals, event lifecycles, stdin/stdout JSON contracts, and exit code blocking protocols (`0` ALLOW, `2` BLOCK).
+- 🌐 **Exhaustive 10-Agent Specifications (`references/specs/`)**: Self-contained, live-verified specification guides cross-referenced with official documentation.
+- 🧪 **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Command Sandboxing, Symlink Guards, Auto-Formatting, and Test Gates.
+- 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `hooks/prevent.py`.
+- 🛠️ **Local Verification Suite (`scripts/verify_hooks.sh`)**: Test runner script that pipes sample JSON payloads to `stdin` to test your hook scripts locally before deploying.
 
 ---
 
 ## 🌐 Complete 10-Agent Specification Library
-
-`captain-hook` includes self-contained, official specification guides cross-referenced with live documentation sources:
 
 | AI Coding Agent | Config File Location | Blocking Exit Code | Specification Guide |
 | :--- | :--- | :---: | :--- |
@@ -63,22 +61,22 @@ cd captain-hook
 
 ```text
 captain-hook/
-├── README.md                            # Main project overview & hero artwork
+├── README.md                            # Project overview & hero artwork
 ├── .claude-plugin/
 │   └── plugin.json                      # Claude Plugin manifest
 ├── assets/
 │   └── captain_hook_gauntlet.jpg        # Hero artwork
 └── skills/captain-hook/                 # 📚 Agent Skill Handbook & Specifications
-    ├── SKILL.md                         # Standard Agent Skill manual
+    ├── SKILL.md                         # Main skill manual
     ├── scripts/
-    │   ├── captain_hook.py              # Standalone executable dispatcher & policy script
-    │   └── verify_hooks.sh              # Automated verification runner
-    ├── examples/                        # Reference configuration templates
+    │   ├── captain_hook.py              # Standalone reference dispatcher
+    │   └── verify_hooks.sh              # Local verification runner
+    ├── examples/                        # Starter configuration templates & mock payloads
     │   ├── cursor_hooks.json
     │   ├── windsurf_hooks.json
     │   ├── claude_settings.json
     │   ├── aider_conf.yml
-    │   └── payloads/                    # Mock JSON stdin payloads
+    │   └── payloads/
     └── references/                      # Deep-dive guides & official specs
         ├── matrix.md
         ├── recipes.md
