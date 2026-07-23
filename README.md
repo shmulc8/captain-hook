@@ -42,18 +42,18 @@ cd captain-hook
 
 ## 🌐 Complete 10-Agent Specification Library
 
-| AI Coding Agent | Config File Location | Blocking Exit Code | Specification Guide |
-| :--- | :--- | :---: | :--- |
-| **Cursor AI** | `.cursor/hooks.json` | Exit Code 2 | [Cursor Hooks Spec](skills/captain-hook/references/specs/cursor.md) |
-| **Windsurf (Cascade)** | `.windsurf/hooks.json` | **Exit Code 2** | [Windsurf Hooks Spec](skills/captain-hook/references/specs/windsurf.md) |
-| **Claude Code** | `.claude/settings.json` | **Exit Code 2** | [Claude Code Hooks Spec](skills/captain-hook/references/specs/claude_code.md) |
-| **Antigravity (AGY)** | `hooks/prevent.py` | Exit Code 2 | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
-| **Aider AI** | `.aider.conf.yml` | Non-zero | [Aider Hooks Spec](skills/captain-hook/references/specs/aider.md) |
-| **Continue CLI (`cn`)** | `~/.continue/settings.json` | **Exit Code 2** | [Continue CLI Spec](skills/captain-hook/references/specs/continue.md) |
-| **Roo Code / Cline** | `.clinerules` | Non-zero | [Roo Code Spec](skills/captain-hook/references/specs/roo_cline.md) |
-| **OpenHands / Devin** | `config.toml` | Non-zero | [OpenHands Spec](skills/captain-hook/references/specs/openhands_devin.md) |
-| **GitHub Copilot** | `.github/copilot-instructions.md` | Non-zero | [Copilot Spec](skills/captain-hook/references/specs/copilot.md) |
-| **Amazon Q** | `.amazonq/rules` | Non-zero | [Amazon Q Spec](skills/captain-hook/references/specs/amazon_q.md) |
+| AI Coding Agent | Config File Location | Specification Guide |
+| :--- | :--- | :--- |
+| **Cursor AI** | `.cursor/hooks.json` | [Cursor Hooks Spec](skills/captain-hook/references/specs/cursor.md) |
+| **Windsurf (Cascade)** | `.windsurf/hooks.json` | [Windsurf Hooks Spec](skills/captain-hook/references/specs/windsurf.md) |
+| **Claude Code** | `.claude/settings.json` | [Claude Code Hooks Spec](skills/captain-hook/references/specs/claude_code.md) |
+| **Antigravity (AGY)** | `hooks/prevent.py` | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
+| **Aider AI** | `.aider.conf.yml` | [Aider Hooks Spec](skills/captain-hook/references/specs/aider.md) |
+| **Continue CLI (`cn`)** | `~/.continue/settings.json` | [Continue CLI Spec](skills/captain-hook/references/specs/continue.md) |
+| **Roo Code / Cline** | `.clinerules` | [Roo Code Spec](skills/captain-hook/references/specs/roo_cline.md) |
+| **OpenHands / Devin** | `config.toml` | [OpenHands Spec](skills/captain-hook/references/specs/openhands_devin.md) |
+| **GitHub Copilot** | `.github/copilot-instructions.md` | [Copilot Spec](skills/captain-hook/references/specs/copilot.md) |
+| **Amazon Q** | `.amazonq/rules` | [Amazon Q Spec](skills/captain-hook/references/specs/amazon_q.md) |
 
 ---
 
