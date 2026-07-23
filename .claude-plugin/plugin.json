@@ -1,5 +1,5 @@
 {
   "name": "captain-hook",
   "version": "1.0.0",
-  "description": "Universal lifecycle hooks, security guardrails, and quality gates for AI coding agents (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, Copilot)."
+  "description": "Agent skill and plugin that helps developers and AI coding agents write, scaffold, audit, and manage native lifecycle hooks across 10+ AI coding agents."
 }

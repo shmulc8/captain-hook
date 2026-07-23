@@ -1,10 +1,10 @@
 # 🪝 `captain-hook`
 
-> **Universal Lifecycle Hooks, Security Guardrails, and Quality Gates for AI Coding Agents.**
+> **The Agent Skill & Plugin that helps developers and AI agents write, scaffold, audit, and manage native lifecycle hooks across AI coding agents.**
 
 ![Captain Hook AI Agent Infinity Gauntlet](assets/captain_hook_gauntlet.jpg)
 
-`captain-hook` is an open-source Claude Plugin and Agent Skill providing exhaustive specifications, executable hook scripts, and security guardrails for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, OpenHands, Copilot, Amazon Q).
+`captain-hook` is an open-source Claude Plugin and Agent Skill providing exhaustive specifications, scaffolding templates, executable reference scripts, and security guardrail patterns for **10+ major AI coding agents** (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, OpenHands, Copilot, Amazon Q).
 
 ---
 
