@@ -53,6 +53,61 @@ def guard_symlinks(path: str) -> str | None:
         return f"Blocked: Target file '{path}' is a symlink pointing outside repository boundaries"
     return None
 
+def _extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
+    """Extract canonical fields from payload handling all agent key variations.
+    
+    Cursor: filepath, prompt, command, server, tool, args
+    Windsurf: file_path, user_prompt, command_string, mcp_server_name, tool_name, arguments
+    Claude Code: tool_name, tool_input (file_path / command), prompt
+    """
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+
+    prompt = (
+        payload.get("prompt")
+        or payload.get("user_prompt")
+        or payload.get("raw")
+        or ""
+    )
+
+    path = (
+        payload.get("path")
+        or payload.get("filepath")
+        or payload.get("file_path")
+        or payload.get("file")
+        or tool_input.get("file_path")
+        or tool_input.get("path")
+        or ""
+    )
+
+    command = (
+        payload.get("command")
+        or payload.get("command_string")
+        or payload.get("cmd")
+        or tool_input.get("command")
+        or ""
+    )
+
+    tool = (
+        payload.get("tool")
+        or payload.get("tool_name")
+        or ""
+    )
+
+    server = (
+        payload.get("server")
+        or payload.get("mcp_server_name")
+        or ""
+    )
+
+    args = (
+        payload.get("args")
+        or payload.get("arguments")
+        or tool_input
+        or {}
+    )
+
+    return prompt, path, command, tool, server, args
+
 # --- Core Dispatcher Logic ---
 
 def dispatch_event(event_name: str, stdin_data: str) -> int:
@@ -63,10 +118,7 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
         except json.JSONDecodeError:
             payload = {"raw": stdin_data}
 
-    # Extract common fields across agent payloads
-    prompt = payload.get("prompt") or payload.get("raw") or ""
-    path = payload.get("path") or payload.get("filepath") or payload.get("file") or ""
-    command = payload.get("command") or payload.get("cmd") or ""
+    prompt, path, command, tool, server, args = _extract_fields(payload)
 
     # 1. PrePrompt Check
     if event_name in ("PrePrompt", "beforeSubmitPrompt", "pre_user_prompt", "UserPromptSubmit"):
