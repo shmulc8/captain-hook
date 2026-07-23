@@ -12,9 +12,28 @@ class ClaudeAdapter(BaseAgentAdapter):
     def generate_config_content(self) -> dict:
         return {
             "hooks": {
-                "UserPromptSubmit": [{"command": "captain-hook dispatch PrePrompt"}],
-                "PreToolUse": [{"command": "captain-hook dispatch PreToolUse"}],
-                "PostToolUse": [{"command": "captain-hook dispatch PostToolUse"}],
-                "Stop": [{"command": "captain-hook dispatch SessionEnd"}],
+                "UserPromptSubmit": [
+                    {
+                        "hooks": [
+                            {"type": "command", "command": "captain-hook dispatch PrePrompt"}
+                        ]
+                    }
+                ],
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash|Edit|Write",
+                        "hooks": [
+                            {"type": "command", "command": "captain-hook dispatch PreToolUse"}
+                        ]
+                    }
+                ],
+                "PostToolUse": [
+                    {
+                        "matcher": "Edit|Write",
+                        "hooks": [
+                            {"type": "command", "command": "captain-hook dispatch PostToolUse"}
+                        ]
+                    }
+                ]
             }
         }

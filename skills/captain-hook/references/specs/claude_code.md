@@ -2,7 +2,7 @@
 
 ## 1. Overview & Architecture
 
-Claude Code (Anthropic's CLI agent) supports shell-based hooks configured inside `settings.json`. Hooks execute automatically at session lifecycle points and before/after tool calls, receiving JSON payloads on standard input (`stdin`).
+Claude Code (Anthropic's CLI agent) supports user-defined hooks configured inside `settings.json`. Hooks execute automatically at session lifecycle points and before/after tool calls, receiving JSON payloads on standard input (`stdin`).
 
 ---
 
@@ -10,48 +10,75 @@ Claude Code (Anthropic's CLI agent) supports shell-based hooks configured inside
 
 | Level | Path | Scope |
 | :--- | :--- | :--- |
-| **Workspace (Project)** | `.claude/settings.json` | Project-specific hook definitions |
-| **User (Global)** | `~/.claude/settings.json` | Global developer hook configuration |
+| **Workspace (Project)** | `.claude/settings.json` | Project-specific hook definitions (shared via git). |
+| **Workspace (Local)** | `.claude/settings.local.json` | Local developer hooks (git ignored). |
+| **User (Global)** | `~/.claude/settings.json` | Global developer hook configuration across repos. |
 
 ---
 
-## 3. Configuration Schema Specification
+## 3. Configuration Schema Specification (`settings.json`)
 
 ```json
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "command": "python3 .claude/hooks/check_prompt.py" }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/check_prompt.py"
+          }
+        ]
+      }
     ],
     "PreToolUse": [
-      { "command": "python3 .claude/hooks/pre_tool_guard.py" }
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard_bash.sh",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/guard_write.py"
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      { "command": "bash .claude/hooks/post_tool.sh" }
-    ],
-    "SessionStart": [
-      { "command": "echo 'Session Started'" }
-    ],
-    "SessionEnd": [
-      { "command": "python3 .claude/hooks/session_end.py" }
-    ],
-    "Stop": [
-      { "command": "python3 .claude/hooks/on_stop.py" }
-    ],
-    "StopFailure": [
-      { "command": "python3 .claude/hooks/on_error.py" }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$PATH\""
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
+### Schema Parameters:
+- `matcher`: Regex string matching the target tool name (e.g. `Bash`, `Edit|Write`, `Glob`, `Grep`).
+- `type`: Must be `"command"` (or `"http"`).
+- `command`: The executable script or shell command string.
+- `timeout`: Execution timeout in seconds (default: 60).
+
 ---
 
-## 4. Complete Lifecycle Event Payloads (`stdin`)
+## 4. Lifecycle Event Payloads (`stdin`)
 
 ### 4.1 `UserPromptSubmit`
-Triggered after a user submits a prompt.
-
+* **Trigger**: Fires after user submits a prompt, before LLM processing.
 * **Payload (`stdin`)**:
   ```json
   {
@@ -61,9 +88,7 @@ Triggered after a user submits a prompt.
   ```
 
 ### 4.2 `PreToolUse`
-Triggered after Claude Code selects a tool to invoke, before tool execution.
-
-* **Supported Tool Names**: `Edit`, `Write`, `Bash`, `Glob`, `Grep`, `NotebookEdit`, `Agent`
+* **Trigger**: Fires before a tool call is executed.
 * **Payload (`stdin`) Example (Bash Tool)**:
   ```json
   {
@@ -88,8 +113,7 @@ Triggered after Claude Code selects a tool to invoke, before tool execution.
   ```
 
 ### 4.3 `PostToolUse`
-Triggered immediately after a tool finishes execution.
-
+* **Trigger**: Fires immediately after a tool call completes.
 * **Payload (`stdin`)**:
   ```json
   {
@@ -100,52 +124,28 @@ Triggered immediately after a tool finishes execution.
   }
   ```
 
-### 4.4 `SessionStart` / `SessionEnd` / `Stop`
-Triggered on session lifecycle boundaries.
-
-* **Payload (`stdin`)**:
-  ```json
-  {
-    "session_id": "sess_891231"
-  }
-  ```
-
 ---
 
 ## 5. Exit Code Semantics
 
-* **Exit Code `0`**: Allow tool invocation.
-* **Exit Code `2` (or non-zero)**: Reject tool invocation. Claude Code **blocks** the tool call and passes standard error (`stderr`) to the model context.
+* **Exit Code `0`**: Success. The action proceeds.
+* **Exit Code `2`**: **BLOCK / REJECT**. Claude Code blocks tool execution and feeds `stderr` back to the agent LLM context.
+* **Exit Code `1` (or other non-zero)**: Non-blocking error. Logged to console.
 
 ---
 
 ## 6. Implementation Example
 
-### `.claude/settings.json`
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      { "command": "python3 .claude/hooks/guard.py" }
-    ]
-  }
-}
-```
+### `.claude/hooks/guard_bash.sh`
+```bash
+#!/usr/bin/env bash
+PAYLOAD=$(cat)
+CMD=$(echo "$PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))")
 
-### `.claude/hooks/guard.py`
-```python
-#!/usr/bin/env python3
-import sys, json
+if [[ "$CMD" =~ "rm -rf" ]] || [[ "$CMD" =~ "git push --force" ]]; then
+    echo "Claude Code Blocked: Command '$CMD' is forbidden!" >&2
+    exit 2 # Exit Code 2 explicitly blocks execution!
+fi
 
-payload = json.load(sys.stdin)
-tool_name = payload.get("tool_name")
-tool_input = payload.get("tool_input", {})
-
-if tool_name == "Bash":
-    cmd = tool_input.get("command", "")
-    if "rm -rf" in cmd or "git push --force" in cmd:
-        sys.stderr.write(f"Claude Code Blocked: Dangerous command '{cmd}' is prohibited.\n")
-        sys.exit(2)
-
-sys.exit(0)
+exit 0
 ```

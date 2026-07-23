@@ -2,22 +2,34 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "command": "captain-hook dispatch PrePrompt"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "captain-hook dispatch PrePrompt"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "command": "captain-hook dispatch PreToolUse"
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "captain-hook dispatch PreToolUse"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "command": "captain-hook dispatch PostToolUse"
-      }
-    ],
-    "Stop": [
-      {
-        "command": "captain-hook dispatch SessionEnd"
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "captain-hook dispatch PostToolUse"
+          }
+        ]
       }
     ]
   }
