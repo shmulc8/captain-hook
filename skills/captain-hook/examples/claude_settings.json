@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "command": "captain-hook dispatch PrePrompt"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "command": "captain-hook dispatch PreToolUse"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "command": "captain-hook dispatch PostToolUse"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "captain-hook dispatch SessionEnd"
+      }
+    ]
+  }
+}

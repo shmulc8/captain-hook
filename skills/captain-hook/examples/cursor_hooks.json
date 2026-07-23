@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "captain-hook dispatch PrePrompt"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "captain-hook dispatch PreCommand"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "captain-hook dispatch PreMCP"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "captain-hook dispatch PreWrite"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "captain-hook dispatch PostWrite"
+      }
+    ],
+    "stop": [
+      {
+        "command": "captain-hook dispatch SessionEnd"
+      }
+    ]
+  }
+}
