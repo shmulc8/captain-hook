@@ -187,21 +187,60 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ---
 
-## 4. Debugging & Troubleshooting Hooks
+## 5. Complete Agent Specification Library (`references/specs/`)
 
-### How to Inspect Stdin Payloads
-When writing a new hook, dump the incoming JSON payload to inspect its fields:
+`captain-hook` contains **exhaustive, self-contained specifications** for every major AI coding agent. You can read these files directly without searching the web:
+
+- 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), and event lifecycle.
+- 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, Exit Code 2 cancellation, and `pre_*`/`post_*` events.
+- 🤖 **[Claude Code Specification](references/specs/claude_code.md)** — `.claude/settings.json` schema, `PreToolUse`/`PostToolUse`, and native tool payload shapes.
+- ⚡ **[Antigravity AGY Specification](references/specs/antigravity.md)** — `hooks/prevent.py` write-time hook and `--check` CI gates.
+- 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml` schema, `auto-lint`, `lint-cmd`, and closed-loop feedback.
+- 🔄 **[Continue CLI Specification](references/specs/continue.md)** — `~/.continue/settings.json` schema and 17 CLI event hooks.
+- 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules`, `.roomodes`, and custom mode tools.
+- 👐 **[OpenHands & Devin Specification](references/specs/openhands_devin.md)** — `config.toml` action interceptors and observation listeners.
+- 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` and pre-commit git hooks.
+- 🅰️ **[Amazon Q Specification](references/specs/amazon_q.md)** — `.amazonq/rules` and CLI customization hooks.
+
+---
+
+## 6. Extending `captain-hook` (Modular Architecture)
+
+`captain-hook` features a pluggable Python architecture designed for easy extension:
+
+### Creating a Custom Security Policy
+To add a project-specific security guard:
 
 ```python
-#!/usr/bin/env python3
-import sys
-raw_data = sys.stdin.read()
-with open("/tmp/debug_hook_payload.json", "w") as f:
-    f.write(raw_data)
-sys.exit(0)
+from captain_hook import BasePolicy, HookPayload, PolicyResult, CanonicalEvent
+
+class CustomOrgPolicy(BasePolicy):
+    name = "custom_org_policy"
+    events_handled = [CanonicalEvent.PRE_PROMPT]
+
+    def evaluate(self, event: str, payload: HookPayload) -> PolicyResult:
+        if "INTERNAL_SECRET" in payload.prompt:
+            return PolicyResult(allowed=False, exit_code=2, message="Blocked: Internal token leak")
+        return PolicyResult(allowed=True, exit_code=0)
+
+# Register with engine
+from captain_hook import Engine
+engine = Engine()
+engine.register_policy(CustomOrgPolicy())
 ```
 
-### Common Pitfalls
-1. **Missing Executable Permissions**: Ensure your script has `chmod +x script.py` or invoke with explicitly `python3 script.py` / `bash script.sh`.
-2. **Incorrect Exit Code**: Remember that exit code `1` is treated as a script error, while **exit code `2`** is the standard signal to block an action.
-3. **Slow Execution / Timeouts**: Hooks run synchronously before AI actions. Keep hook execution time under 1 second.
+### Adding a New Agent Adapter
+To support a new AI coding agent:
+
+```python
+from captain_hook.adapters import BaseAgentAdapter
+
+class NewAgentAdapter(BaseAgentAdapter):
+    name = "new_agent"
+    config_relpath = ".newagent/hooks.json"
+
+    def generate_config_content(self) -> dict:
+        return {"hooks": {"pre_tool": "captain-hook dispatch PreWrite"}}
+
+engine.register_adapter(NewAgentAdapter())
+```
