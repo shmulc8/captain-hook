@@ -1,4 +1,5 @@
-"""Unit tests for captain-hook CLI and guards."""
+"""Unit tests for modular captain-hook Engine, Policies, and Adapters."""
+
 from __future__ import annotations
 
 import json
@@ -7,45 +8,42 @@ import shutil
 import tempfile
 import unittest
 
-from src.captain_hook import (
-    dispatch_event,
-    guard_commands,
-    guard_secrets,
-    guard_symlinks,
-    init_agent_configs,
+from captain_hook import Engine, HookPayload, PolicyResult
+from captain_hook.policies import (
+    BasePolicy,
+    CommandSandboxPolicy,
+    SecretScannerPolicy,
+    SymlinkGuardPolicy,
 )
 
 
-class TestCaptainHookGuards(unittest.TestCase):
-    def test_guard_secrets_detects_aws_key(self):
-        text = 'aws_key = "AKIA1234567890ABCDEF"'
-        res = guard_secrets(text)
-        self.assertIsNotNone(res)
-        self.assertIn("AWS Access Key", res)
+class CustomTestPolicy(BasePolicy):
+    name = "custom_test_policy"
+    events_handled = ["PrePrompt"]
 
-    def test_guard_secrets_detects_github_pat(self):
-        text = "ghp_" + "a" * 36
-        res = guard_secrets(text)
-        self.assertIsNotNone(res)
-        self.assertIn("GitHub Personal Access Token", res)
+    def evaluate(self, event: str, payload: HookPayload) -> PolicyResult:
+        if "forbidden" in payload.prompt:
+            return PolicyResult(allowed=False, exit_code=2, message="Forbidden keyword detected")
+        return PolicyResult(allowed=True, exit_code=0)
 
-    def test_guard_secrets_detects_anthropic_key(self):
-        text = "sk-ant-" + "a" * 40
-        res = guard_secrets(text)
-        self.assertIsNotNone(res)
-        self.assertIn("Anthropic API Key", res)
 
-    def test_guard_commands_detects_rm_rf(self):
-        res = guard_commands("rm -rf /")
-        self.assertIsNotNone(res)
-        self.assertIn("Dangerous shell command", res)
+class TestModularPolicies(unittest.TestCase):
+    def setUp(self):
+        self.engine = Engine()
 
-    def test_guard_commands_detects_force_push(self):
-        res = guard_commands("git push origin main --force")
-        self.assertIsNotNone(res)
-        self.assertIn("Dangerous shell command", res)
+    def test_secret_scanner_policy(self):
+        res = self.engine.dispatch("PrePrompt", json.dumps({"prompt": "my key is AKIA1234567890ABCDEF"}))
+        self.assertFalse(res.allowed)
+        self.assertEqual(res.exit_code, 2)
+        self.assertIn("AWS Access Key", res.message)
 
-    def test_guard_symlinks_blocks_symlink(self):
+    def test_command_sandbox_policy(self):
+        res = self.engine.dispatch("PreCommand", json.dumps({"command": "rm -rf /"}))
+        self.assertFalse(res.allowed)
+        self.assertEqual(res.exit_code, 2)
+        self.assertIn("Dangerous shell command", res.message)
+
+    def test_symlink_guard_policy(self):
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d, ignore_errors=True)
         target = os.path.join(d, "target.py")
@@ -53,31 +51,37 @@ class TestCaptainHookGuards(unittest.TestCase):
         with open(target, "w") as f:
             f.write("print(1)")
         os.symlink(target, link)
-        self.assertIsNotNone(guard_symlinks(link))
+
+        res = self.engine.dispatch("PreWrite", json.dumps({"path": link}))
+        self.assertFalse(res.allowed)
+        self.assertEqual(res.exit_code, 2)
+        self.assertIn("symlink", res.message)
+
+    def test_custom_policy_registration(self):
+        self.engine.register_policy(CustomTestPolicy())
+
+        res1 = self.engine.dispatch("PrePrompt", json.dumps({"prompt": "this is fine"}))
+        self.assertTrue(res1.allowed)
+
+        res2 = self.engine.dispatch("PrePrompt", json.dumps({"prompt": "this is forbidden"}))
+        self.assertFalse(res2.allowed)
+        self.assertEqual(res2.exit_code, 2)
+        self.assertIn("Forbidden keyword", res2.message)
 
 
-class TestCaptainHookInit(unittest.TestCase):
+class TestModularAdapters(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.engine = Engine()
 
-    def test_init_all_agents(self):
-        init_agent_configs("all", self.dir)
+    def test_init_all_adapters(self):
+        self.engine.init_agent_configs("all", self.dir)
         self.assertTrue(os.path.exists(os.path.join(self.dir, ".cursor", "hooks.json")))
         self.assertTrue(os.path.exists(os.path.join(self.dir, ".windsurf", "hooks.json")))
         self.assertTrue(os.path.exists(os.path.join(self.dir, ".claude", "settings.json")))
         self.assertTrue(os.path.exists(os.path.join(self.dir, ".aider.conf.yml")))
         self.assertTrue(os.path.exists(os.path.join(self.dir, "hooks", "prevent.py")))
-
-    def test_dispatch_pre_prompt_blocks_secret(self):
-        payload = json.dumps({"prompt": "my token is ghp_" + "x" * 36})
-        code = dispatch_event("PrePrompt", payload)
-        self.assertEqual(code, 2)
-
-    def test_dispatch_pre_prompt_allows_clean(self):
-        payload = json.dumps({"prompt": "please fix the bug in main.py"})
-        code = dispatch_event("PrePrompt", payload)
-        self.assertEqual(code, 0)
 
 
 if __name__ == "__main__":

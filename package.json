@@ -7,7 +7,7 @@
     "captain-hook": "src/captain_hook.py"
   },
   "scripts": {
-    "test": "python3 -m unittest discover tests"
+    "test": "PYTHONPATH=src python3 -m unittest discover tests"
   },
   "keywords": [
     "ai-agent",

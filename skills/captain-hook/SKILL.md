@@ -65,9 +65,43 @@ Read [`references/guards.md`](references/guards.md) for detailed policy configur
 
 ---
 
-## 4. Universal Exit Code Protocol
+## 5. Extending `captain-hook` (Modular Architecture)
 
-When dispatching events via `captain-hook dispatch <event>`:
-- **`0` (ALLOW)**: Action permitted.
-- **`1` (ERROR)**: Fatal hook script execution failure.
-- **`2` (BLOCK / REJECT)**: Policy violation. The host agent cancels the action and displays `stderr` to the user or AI model.
+`captain-hook` features a pluggable Python architecture designed for easy extension:
+
+### Creating a Custom Security Policy
+To add a project-specific security guard:
+
+```python
+from captain_hook import BasePolicy, HookPayload, PolicyResult, CanonicalEvent
+
+class CustomOrgPolicy(BasePolicy):
+    name = "custom_org_policy"
+    events_handled = [CanonicalEvent.PRE_PROMPT]
+
+    def evaluate(self, event: str, payload: HookPayload) -> PolicyResult:
+        if "INTERNAL_SECRET" in payload.prompt:
+            return PolicyResult(allowed=False, exit_code=2, message="Blocked: Internal token leak")
+        return PolicyResult(allowed=True, exit_code=0)
+
+# Register with engine
+from captain_hook import Engine
+engine = Engine()
+engine.register_policy(CustomOrgPolicy())
+```
+
+### Adding a New Agent Adapter
+To support a new AI coding agent:
+
+```python
+from captain_hook.adapters import BaseAgentAdapter
+
+class NewAgentAdapter(BaseAgentAdapter):
+    name = "new_agent"
+    config_relpath = ".newagent/hooks.json"
+
+    def generate_config_content(self) -> dict:
+        return {"hooks": {"pre_tool": "captain-hook dispatch PreWrite"}}
+
+engine.register_adapter(NewAgentAdapter())
+```
