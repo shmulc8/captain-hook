@@ -8,6 +8,11 @@
 
 ---
 
+## 💡 The Pain Point & Solution
+
+- **The Pain Point**: Lifecycle hooks are the single most powerful tool for deterministic security guardrails, command sandboxing, and quality gates in AI coding. However, unlike open skill standards, **every AI coding agent uses completely different, constantly changing hook specifications**, configuration schemas, JSON payload shapes, and exit code semantics.
+- **The Solution**: `captain-hook` organizes all this fragmented information into one unified handbook, scaffolding library, and verification suite—saving developers and AI agents from searching the open sea of documentation for each individual agent.
+
 ## 📦 Installation & Setup
 
 ### 1. Install as a Claude Plugin
