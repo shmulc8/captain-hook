@@ -187,9 +187,21 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ---
 
-## 5. Complete Agent Specification Library (`references/specs/`)
+## 5. Verification, Security Catalogs & CI Integration
 
-`captain-hook` contains **exhaustive, self-contained specifications** for every major AI coding agent. You can read these files directly without searching the web:
+`captain-hook` includes automated testing and governance tools for production readiness before going public:
+
+- 🧪 **Automated Verification Suite (`./scripts/verify_hooks.sh`)**: Test your project's hook scripts locally against sample `stdin` payloads before deploying.
+- 📂 **Sample Payloads (`examples/payloads/`)**: Real-world JSON stdin payload files for testing `beforeShellExecution`, `PreToolUse`, and `pre_write_code`.
+- 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, command sandboxing, symlink guard, MCP governance).
+- 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.
+- 🚀 **[CI/CD Integration Guide](references/ci_cd_integration.md)** — Integrating hook verification into `.git/hooks/pre-commit` and GitHub Actions workflows.
+
+---
+
+## 6. Complete Agent Specification Library (`references/specs/`)
+
+`captain-hook` contains **exhaustive, self-contained specifications** for every major AI coding agent:
 
 - 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), and event lifecycle.
 - 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, Exit Code 2 cancellation, and `pre_*`/`post_*` events.

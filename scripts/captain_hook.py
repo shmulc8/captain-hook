@@ -1,8 +1,123 @@
 #!/usr/bin/env python3
-"""captain-hook executable CLI entry point."""
+"""captain-hook standalone dispatcher and policy script."""
 
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
 import sys
-from captain_hook.cli import main
+
+VERSION = "1.0.0"
+
+# --- Security Guards & Patterns ---
+
+SECRET_PATTERNS = [
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AWS Access Key"),
+    (re.compile(r"(?i)ghp_[0-9a-zA-Z]{36}"), "GitHub Personal Access Token"),
+    (re.compile(r"(?i)gho_[0-9a-zA-Z]{36}"), "GitHub OAuth Access Token"),
+    (re.compile(r"(?i)glpat-[0-9a-zA-Z\-]{20}"), "GitLab Personal Access Token"),
+    (re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----"), "Private Key"),
+    (re.compile(r"(?i)sk-[a-zA-Z0-9]{48}"), "OpenAI API Key"),
+    (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
+]
+
+BLOCKED_COMMANDS = [
+    re.compile(r"\brm\s+-[rRf]{1,2}\s+[/~*]"),
+    re.compile(r"\b(mkfs|dd\s+if=)\b"),
+    re.compile(r"\bgit\s+push\s+.*--force\b"),
+    re.compile(r"\bchmod\s+-R\s+777\b"),
+    re.compile(r"\bchown\s+-R\s+root\b"),
+]
+
+
+def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+
+    prompt = payload.get("prompt") or payload.get("user_prompt") or payload.get("raw") or ""
+    path = (
+        payload.get("path")
+        or payload.get("filepath")
+        or payload.get("file_path")
+        or payload.get("file")
+        or tool_input.get("file_path")
+        or tool_input.get("path")
+        or ""
+    )
+    command = (
+        payload.get("command")
+        or payload.get("command_string")
+        or payload.get("cmd")
+        or tool_input.get("command")
+        or ""
+    )
+    tool = payload.get("tool") or payload.get("tool_name") or ""
+    server = payload.get("server") or payload.get("mcp_server_name") or ""
+    args = payload.get("args") or payload.get("arguments") or tool_input or {}
+
+    return prompt, path, command, tool, server, args
+
+
+def dispatch_event(event_name: str, stdin_data: str) -> int:
+    payload = {}
+    if stdin_data.strip():
+        try:
+            payload = json.loads(stdin_data)
+        except json.JSONDecodeError:
+            payload = {"raw": stdin_data}
+
+    prompt, path, command, tool, server, args = extract_fields(payload)
+
+    # 1. Secret Scanning
+    for target in [prompt, command, stdin_data]:
+        if not target:
+            continue
+        for pattern, label in SECRET_PATTERNS:
+            if pattern.search(target):
+                sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
+                return 2
+
+    # 2. Command Sandboxing
+    if command:
+        for pattern in BLOCKED_COMMANDS:
+            if pattern.search(command):
+                sys.stderr.write(f"captain-hook: Blocked: Dangerous shell command pattern matched ({pattern.pattern})\n")
+                return 2
+
+    # 3. Symlink Guard
+    if path and os.path.exists(path) and os.path.islink(path):
+        sys.stderr.write(f"captain-hook: Blocked: Target file '{path}' is a symlink pointing outside repository boundaries\n")
+        return 2
+
+    # 4. Post-Write Auto Formatting
+    if event_name in ("PostWrite", "afterFileEdit", "post_write_code", "PostToolUse") and path and os.path.exists(path):
+        if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")) and shutil.which("npx"):
+            subprocess.run(["npx", "prettier", "--write", path], capture_output=True)
+        elif path.endswith(".py") and shutil.which("ruff"):
+            subprocess.run(["ruff", "format", path], capture_output=True)
+
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="captain-hook standalone dispatcher.")
+    subparsers = parser.add_subparsers(dest="subcommand")
+
+    dispatch_parser = subparsers.add_parser("dispatch", help="Dispatch a hook event.")
+    dispatch_parser.add_argument("event", help="Canonical or agent event name")
+
+    args = parser.parse_args()
+
+    if args.subcommand == "dispatch":
+        stdin_data = sys.stdin.read() if not sys.stdin.isatty() else ""
+        sys.exit(dispatch_event(args.event, stdin_data))
+    else:
+        parser.print_help()
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

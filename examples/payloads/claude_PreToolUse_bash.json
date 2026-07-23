@@ -1,0 +1,7 @@
+{
+  "session_id": "sess_091823",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git push origin main --force"
+  }
+}
