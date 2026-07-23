@@ -1,0 +1,5 @@
+{
+  "name": "captain-hook",
+  "version": "1.0.0",
+  "description": "Universal lifecycle hooks, security guardrails, and quality gates for AI coding agents (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, Copilot)."
+}

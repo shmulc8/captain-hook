@@ -5,8 +5,6 @@ description: The complete guide and manual for writing, configuring, debugging, 
 
 # `captain-hook`: The Handbook for Writing Hooks in AI Coding Agents
 
-![Captain Hook Infinity Gauntlet](assets/captain_hook_gauntlet.jpg)
-
 This skill teaches you **how to design, write, configure, and troubleshoot lifecycle hooks** for every major AI coding agent.
 
 ---
