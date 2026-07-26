@@ -96,3 +96,11 @@ graphify-out/
 
 # Local execution plans (not shipped with the plugin)
 plans/
+
+# The payload fixtures are the suite's inputs, and the credentials in them are
+# deliberately fake. `*token*.json` above matches one of them, which is how
+# cursor_beforeSubmitPrompt_gitlab_token.json stayed untracked while the suite
+# passed for whoever had it on disk and failed for everyone else. Negate the
+# secrets rules here rather than renaming fixtures around them: the next
+# fixture holding a fake token should not depend on someone noticing.
+!skills/captain-hook/examples/payloads/*.json
