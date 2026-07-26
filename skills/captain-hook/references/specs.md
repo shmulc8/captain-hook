@@ -33,30 +33,35 @@ This document provides exact, authoritative specifications for all supported AI 
 
 ## 2. Windsurf (Cascade)
 
-- **Config Path**: `.windsurf/hooks.json` (Workspace), `~/.codeium/windsurf/hooks.json` (User), `/etc/windsurf/hooks.json` (System)
-- **JSON Schema**:
+- **Config Path**: `.windsurf/hooks.json` (Workspace); `~/.codeium/windsurf/hooks.json` (User, Devin Desktop) or `~/.codeium/hooks.json` (User, JetBrains); `/etc/windsurf/hooks.json`, `/Library/Application Support/Windsurf/hooks.json`, or `C:\ProgramData\Windsurf\hooks.json` (System)
+- **JSON Schema** — all 12 events:
   ```json
   {
     "hooks": {
-      "pre_user_prompt": [ { "command": "...", "show_output": false } ],
+      "pre_read_code": [ { "command": "..." } ],
+      "post_read_code": [ { "command": "..." } ],
       "pre_write_code": [ { "command": "..." } ],
       "post_write_code": [ { "command": "..." } ],
       "pre_run_command": [ { "command": "..." } ],
       "post_run_command": [ { "command": "..." } ],
       "pre_mcp_tool_use": [ { "command": "..." } ],
-      "post_mcp_tool_use": [ { "command": "..." } ]
+      "post_mcp_tool_use": [ { "command": "..." } ],
+      "pre_user_prompt": [ { "command": "...", "show_output": false } ],
+      "post_cascade_response": [ { "command": "..." } ],
+      "post_cascade_response_with_transcript": [ { "command": "..." } ],
+      "post_setup_worktree": [ { "command": "..." } ]
     }
   }
   ```
-- **Payload (`stdin`) Field Names**:
-  - `file_path`: Path to file
-  - `code`: File content diff/snippet
-  - `user_prompt`: User prompt string
-  - `command_string`: Terminal command string
-  - `mcp_server_name`: MCP server name
-  - `tool_name`: MCP tool name
-  - `arguments`: MCP parameters
-- **Blocking Contract**: Exit Code **2** explicitly cancels `pre_*` actions.
+  Per-hook fields are `command` (required), `powershell`, `show_output`, and `working_directory`. There is no `timeout` field.
+- **Payload (`stdin`) Field Names** — a common envelope (`agent_action_name`, `trajectory_id`, `execution_id`, `timestamp`, `model_name`) wrapping a `tool_info` object; the per-event data is **inside `tool_info`**:
+  - `tool_info.user_prompt`: User prompt string
+  - `tool_info.file_path`: Path to file
+  - `tool_info.edits[]`: `{ "old_string": "...", "new_string": "..." }` entries
+  - `tool_info.command_line`: Terminal command string
+  - `tool_info.cwd`: Command working directory
+  - `tool_info.mcp_server_name` / `tool_info.mcp_tool_name` / `tool_info.mcp_tool_arguments` / `tool_info.mcp_result`
+- **Blocking Contract**: Exit Code **2** cancels the action, but only on the five `pre_*` hooks. Any other non-zero code is non-blocking and the action proceeds.
 
 ---
 

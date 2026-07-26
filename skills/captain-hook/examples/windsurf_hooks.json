@@ -6,6 +6,11 @@
         "show_output": false
       }
     ],
+    "pre_read_code": [
+      {
+        "command": "<CAPTAIN_HOOK> dispatch PreRead"
+      }
+    ],
     "pre_write_code": [
       {
         "command": "<CAPTAIN_HOOK> dispatch PreWrite"

@@ -15,7 +15,7 @@ This document maps canonical lifecycle events to vendor-native **Executable Hook
 | **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | Command Listener | `PostToolUse` | Post-exec Hook | Post-commit |
 | **`PreMCP`** | `beforeMCPExecution` | `pre_mcp_tool_use` | `PreToolUse` (MCP) | MCP Proxy Hook | `PreToolUse` | MCP Proxy Hook | N/A |
 | **`PostMCP`** | N/A | `post_mcp_tool_use` | `PostToolUse` (MCP) | MCP Proxy Hook | `PostToolUse` | MCP Proxy Hook | N/A |
-| **`SessionEnd`** | `stop` | `post_user_prompt` | `Stop` / `SessionEnd` | Turn End Hook | `TaskCompleted` | `test-cmd` | Post-commit |
+| **`SessionEnd`** | `stop` | `post_cascade_response` | `Stop` / `SessionEnd` | Turn End Hook | `TaskCompleted` | `test-cmd` | Post-commit |
 
 ---
 

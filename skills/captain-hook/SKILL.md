@@ -118,8 +118,8 @@ Windsurf loads hooks from `.windsurf/hooks.json` (Workspace), `~/.codeium/windsu
 #!/usr/bin/env bash
 # Read stdin JSON passed by Windsurf
 PAYLOAD=$(cat)
-# Windsurf passes command string in command_string
-CMD=$(echo "$PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('command_string', ''))")
+# Windsurf nests the command under tool_info.command_line
+CMD=$(echo "$PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_info', {}).get('command_line', ''))")
 
 if [[ "$CMD" =~ "rm -rf" ]] || [[ "$CMD" =~ "git push --force" ]]; then
     echo "Blocked: Dangerous command '$CMD' is forbidden by project safety hook!" >&2
