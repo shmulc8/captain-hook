@@ -166,6 +166,7 @@ Automatically runs `prettier` or `eslint` after code writes.
 #!/usr/bin/env node
 // Auto-Formatter Post-Hook for Node.js
 const fs = require('fs');
+const path = require('path');
 const { execSync } = require('child_process');
 
 let rawData = '';
@@ -179,7 +180,14 @@ process.stdin.on('end', () => {
 
     if (filePath && fs.existsSync(filePath)) {
       if (filePath.match(/\.(js|ts|jsx|tsx|json)$/)) {
-        execSync(`npx prettier --write "${filePath}"`, { stdio: 'ignore' });
+        // Resolve the local binary; never the npm auto-install runner, which
+        // downloads an unpinned package from the registry when prettier is
+        // not installed. The timeout keeps a hung formatter from stalling
+        // the agent's tool call.
+        const local = path.join(process.cwd(), 'node_modules', '.bin', 'prettier');
+        if (fs.existsSync(local)) {
+          execSync(`"${local}" --write "${filePath}"`, { stdio: 'ignore', timeout: 10000 });
+        }
       }
     }
   } catch (err) {

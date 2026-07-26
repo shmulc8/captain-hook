@@ -37,6 +37,9 @@ Cursor AI features a native **Hooks** system that triggers custom scripts during
   }
 }
 ```
+> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
+> locally. In a hook that runs on every file write, prefer
+> `./node_modules/.bin/prettier` and pin the version.
 
 ---
 

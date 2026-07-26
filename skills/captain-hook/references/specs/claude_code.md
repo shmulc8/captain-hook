@@ -66,6 +66,9 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
   }
 }
 ```
+> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
+> locally. In a hook that runs on every file write, prefer
+> `./node_modules/.bin/prettier` and pin the version.
 
 ### Schema Parameters:
 - `matcher`: Regex string matching the target tool name (e.g. `Bash`, `Edit|Write`, `Glob`, `Grep`).

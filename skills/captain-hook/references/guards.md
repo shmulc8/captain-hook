@@ -66,5 +66,12 @@ Enforced during `PreWrite`, `beforeReadFile`, `pre_write_code`.
 Enforced during `PostWrite`, `afterFileEdit`, `post_write_code`, `PostToolUse`.
 
 ### Behavior:
-* Runs `prettier --write <path>` for JS/TS/JSX/TSX/JSON files if `npx` is available.
-* Runs `ruff format <path>` for Python files if `ruff` is available.
+* Runs `prettier --write <path>` for JS/TS/JSX/TSX/JSON files **only when
+  `prettier` is already installed** — resolved from `PATH` or the nearest
+  `node_modules/.bin`. `npx` is deliberately not used: it downloads an unpinned
+  package from the npm registry, which is a network fetch and arbitrary code
+  execution inside a hook.
+* Runs `ruff format <path>` for Python files when `ruff` is on `PATH`.
+* Both calls are bounded by a 10-second timeout. On timeout or failure the file
+  is left unformatted and a warning is written to `stderr`; the hook never fails
+  the write because of a formatter.

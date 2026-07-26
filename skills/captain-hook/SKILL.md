@@ -78,6 +78,9 @@ Cursor reads `.cursor/hooks.json` in your project root or `~/.cursor/hooks.json`
   }
 }
 ```
+> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
+> locally. In a hook that runs on every file write, prefer
+> `./node_modules/.bin/prettier` and pin the version.
 
 #### Step 2: Write the Python Hook Script (`.cursor/hooks/check_secrets.py`)
 ```python

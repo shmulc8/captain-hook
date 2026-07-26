@@ -59,6 +59,9 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
   }
 }
 ```
+> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
+> locally. In a hook that runs on every file write, prefer
+> `./node_modules/.bin/prettier` and pin the version.
 
 ### Key Configuration Options:
 - `command`: The executable shell string to run.

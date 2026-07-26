@@ -155,6 +155,38 @@ def _is_blocking(event_name: str) -> bool:
     return event_name not in POST_EVENTS
 
 
+# The formatter runs inside a hook on every file write. It must never reach the
+# network and must never outlive the host's own hook timeout (30s Antigravity,
+# 60s Claude Code, unspecified on Windsurf) — so it gets its own, shorter one.
+FORMAT_TIMEOUT_SECONDS = 10
+
+
+def _local_node_bin(name: str) -> str | None:
+    """Find a project-local node_modules/.bin entry by walking up from cwd."""
+    current = os.path.abspath(os.getcwd())
+    while True:
+        candidate = os.path.join(current, "node_modules", ".bin", name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None
+        current = parent
+
+
+def _run_formatter(argv: list[str], path: str) -> None:
+    """Best-effort format. Never raises, never blocks the caller's decision."""
+    try:
+        subprocess.run(argv, capture_output=True, timeout=FORMAT_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(
+            f"captain-hook: Warning: formatter timed out after "
+            f"{FORMAT_TIMEOUT_SECONDS}s on '{path}' — file left unformatted\n"
+        )
+    except OSError as exc:
+        sys.stderr.write(f"captain-hook: Warning: formatter failed on '{path}': {exc}\n")
+
+
 def dispatch_event(event_name: str, stdin_data: str) -> int:
     payload = {}
     if stdin_data.strip():
@@ -203,12 +235,24 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                 )
                 break
 
-    # 4. Post-Write Auto Formatting
+    # 4. Post-Write Auto Formatting — locally installed tools only.
+    # Known uncovered: no test actually formats a file. Doing so would require
+    # prettier or ruff on the machine, and the suite is deliberately
+    # dependency-free. The timeout and the missing-binary path are tested.
     if event_name in POST_WRITE_EVENTS and path and os.path.exists(path):
-        if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")) and shutil.which("npx"):
-            subprocess.run(["npx", "prettier", "--write", path], capture_output=True)
-        elif path.endswith(".py") and shutil.which("ruff"):
-            subprocess.run(["ruff", "format", path], capture_output=True)
+        if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
+            # Resolve the prettier binary itself. Deliberately not launched via
+            # the npm auto-install runner, which fetches an unpinned package
+            # from the registry when prettier is absent — a network call and
+            # arbitrary code execution inside a security hook. See
+            # references/guards.md section 4.
+            prettier = shutil.which("prettier") or _local_node_bin("prettier")
+            if prettier:
+                _run_formatter([prettier, "--write", path], path)
+        elif path.endswith(".py"):
+            ruff = shutil.which("ruff")
+            if ruff:
+                _run_formatter([ruff, "format", path], path)
 
     return 0
 
