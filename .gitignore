@@ -93,3 +93,6 @@ yarn-error.log*
 # graphify knowledge-graph output
 graphify-out/
 **/graphify-out/
+
+# Local execution plans (not shipped with the plugin)
+plans/
