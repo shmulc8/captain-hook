@@ -205,6 +205,32 @@ def check_spec_provenance() -> list[str]:
     return failures
 
 
+# Aider silently ignores an unknown key, so a typo in the shipped template is
+# invisible: the config loads, the setting never applies, nothing is logged.
+# `auto-commit` for `auto-commits` shipped for exactly that reason. Line-based
+# on purpose — this script is stdlib-only and there is no YAML parser.
+KNOWN_AIDER_KEYS = {
+    "auto-lint", "lint-cmd", "auto-test", "test-cmd", "auto-commits",
+    "dirty-commits", "attribute-author", "attribute-committer", "model",
+}
+AIDER_KEY_RE = re.compile(r"^([a-z][a-z0-9-]*)\s*:", re.M)
+
+
+def check_aider_template_keys() -> list[str]:
+    """Every top-level key in the shipped Aider template is one Aider reads."""
+    path = EXAMPLES_DIR / "aider_conf.yml"
+    if not path.exists():
+        return [f"{rel(path)}: missing"]
+    failures = []
+    for key in AIDER_KEY_RE.findall(read(path)):
+        if key not in KNOWN_AIDER_KEYS:
+            failures.append(
+                f"{rel(path)}: '{key}' is not a key Aider reads — see "
+                f"references/specs/aider.md section 3"
+            )
+    return failures
+
+
 def check_ci_guide_matches_workflow() -> list[str]:
     """The CI guide claims to reproduce the workflow exactly; hold it to that."""
     workflow = REPO_ROOT / ".github" / "workflows" / "verify.yml"
@@ -274,6 +300,7 @@ CHECKS = [
     ("Fenced Python blocks compile", check_python_blocks),
     ("Hook commands avoid $PATH and npx", check_hook_command_antipatterns),
     ("CI guide reproduces the workflow", check_ci_guide_matches_workflow),
+    ("Aider template keys are real", check_aider_template_keys),
 ]
 
 
