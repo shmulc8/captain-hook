@@ -18,13 +18,28 @@ Every template in `examples/` uses the placeholder `<CAPTAIN_HOOK>`. Replace it
 with the absolute path above before use:
 
 ```bash
-CH="$(pwd)/skills/captain-hook/scripts/captain_hook.py"
-sed -i '' "s|<CAPTAIN_HOOK>|python3 $CH|g" .cursor/hooks.json   # macOS
-sed -i    "s|<CAPTAIN_HOOK>|python3 $CH|g" .cursor/hooks.json   # Linux
+CH="python3 $(pwd)/skills/captain-hook/scripts/captain_hook.py"
+# Run this against whichever config file(s) you copied — one per agent.
+for f in .cursor/hooks.json .windsurf/hooks.json .agents/hooks.json .claude/settings.json .aider.conf.yml; do
+  [ -f "$f" ] || continue
+  python3 - "$f" "$CH" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text(encoding="utf-8").replace("<CAPTAIN_HOOK>", sys.argv[2]), encoding="utf-8")
+print("substituted:", p)
+PY
+done
 ```
 
 Use an **absolute** path. Hooks do not reliably run with your repository as the
 working directory.
+
+For Claude Code specifically there is a second, substitution-free form: install
+captain-hook as a Claude Code plugin and use `${CLAUDE_PLUGIN_ROOT}` instead of
+an absolute path — see the next section. The shipped template uses the
+placeholder so that both install paths start from the same file; a `git clone`
+install has no `${CLAUDE_PLUGIN_ROOT}`, and a hook whose command does not
+resolve exits 1, which permits the action rather than blocking it.
 
 ## Claude Code plugin installs
 
