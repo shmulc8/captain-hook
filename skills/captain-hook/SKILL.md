@@ -1,6 +1,6 @@
 ---
 name: captain-hook
-description: An agent skill that helps developers and AI coding agents write, configure, scaffold, audit, and debug native lifecycle hooks across AI coding agents (Claude Code, Cursor, Windsurf, Aider, Antigravity, Continue, Roo Code, Copilot). Activate this skill whenever asked how to write hooks, setup write guards, intercept agent tool calls, block dangerous shell commands, or configure linting/testing feedback loops for any AI coding agent.
+description: An agent skill that helps developers and AI coding agents write, configure, scaffold, audit, and debug native lifecycle hooks across AI coding agents — Claude Code, Cursor, Windsurf, OpenHands, and Antigravity have executable hooks that can block an action; Aider, Roo Code / Cline, GitHub Copilot, and Amazon Q are advisory rules files only; Continue CLI is unverified. Activate this skill whenever asked how to write hooks, setup write guards, intercept agent tool calls, block dangerous shell commands, or configure linting/testing feedback loops for any AI coding agent.
 ---
 
 # `captain-hook`: The Agent Skill for Writing Hooks in AI Coding Agents

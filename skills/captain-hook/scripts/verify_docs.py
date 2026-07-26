@@ -205,6 +205,45 @@ def check_spec_provenance() -> list[str]:
     return failures
 
 
+# The roster split — who can block, who is advisory — is the question this
+# skill exists to answer, and the frontmatter description is what decides
+# whether it activates at all. It named eight of ten agents while the body
+# documented all ten, so the two least-guessable agents were also the two the
+# skill would not surface for.
+ROSTER_AGENTS = (
+    "Claude Code", "Cursor", "Windsurf", "OpenHands", "Antigravity",
+    "Aider", "Roo Code", "Copilot", "Amazon Q", "Continue",
+)
+DESCRIPTION_RE = re.compile(r"^description:\s*(.+)$", re.M)
+DESCRIPTION_MAX = 1024
+
+
+def check_skill_description() -> list[str]:
+    """SKILL.md's description names every agent with a spec, and fits the cap."""
+    text = read(SKILL_DIR / "SKILL.md")
+    match = DESCRIPTION_RE.search(text)
+    if not match:
+        return ["skills/captain-hook/SKILL.md: no description in frontmatter"]
+    description = match.group(1)
+    failures = [
+        f"skills/captain-hook/SKILL.md: description does not name {agent!r}"
+        for agent in ROSTER_AGENTS
+        if agent not in description
+    ]
+    if len(description) > DESCRIPTION_MAX:
+        failures.append(
+            f"skills/captain-hook/SKILL.md: description is {len(description)} chars, "
+            f"over the {DESCRIPTION_MAX} cap some hosts enforce"
+        )
+    spec_count = len(list((SKILL_DIR / "references" / "specs").glob("*.md")))
+    if spec_count != len(ROSTER_AGENTS):
+        failures.append(
+            f"references/specs/ holds {spec_count} specs but ROSTER_AGENTS lists "
+            f"{len(ROSTER_AGENTS)} — add the new agent to the description and to this check"
+        )
+    return failures
+
+
 # Aider silently ignores an unknown key, so a typo in the shipped template is
 # invisible: the config loads, the setting never applies, nothing is logged.
 # `auto-commit` for `auto-commits` shipped for exactly that reason. Line-based
@@ -301,6 +340,7 @@ CHECKS = [
     ("Hook commands avoid $PATH and npx", check_hook_command_antipatterns),
     ("CI guide reproduces the workflow", check_ci_guide_matches_workflow),
     ("Aider template keys are real", check_aider_template_keys),
+    ("SKILL.md description names every agent", check_skill_description),
 ]
 
 
