@@ -199,6 +199,24 @@ else
   TEST_FAILED=$((TEST_FAILED + 1))
 fi
 
+echo -n "  Testing [Doc gates cover the repository root, not plans/] ... "
+if python3 -c '
+import sys
+sys.path.insert(0, "'"$SCRIPT_DIR"'")
+import verify_docs
+md = [verify_docs.rel(p) for p in verify_docs.markdown_files()]
+tx = [verify_docs.rel(p) for p in verify_docs.text_files()]
+assert "README.md" in md, "repo-root README.md is not scanned"
+assert ".claude-plugin/plugin.json" in tx, "plugin.json is not scanned"
+assert not any(p.startswith("plans/") for p in md + tx), "plans/ is being scanned"
+' 2>/dev/null; then
+  echo "✓ PASSED"
+  TEST_PASSED=$((TEST_PASSED + 1))
+else
+  echo "❌ FAILED (gate scope regressed)"
+  TEST_FAILED=$((TEST_FAILED + 1))
+fi
+
 echo ""
 echo "🪝 Verifying secret-pattern catalog is in sync..."
 set +e

@@ -18,6 +18,14 @@ import sys
 
 SKILL_DIR = pathlib.Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = SKILL_DIR / "examples"
+REPO_ROOT = SKILL_DIR.parent.parent
+# Directories at the repository root that are not shipped documentation. The
+# first entry is load-bearing: plans/ is gitignored working material that
+# quotes the forbidden strings on purpose (it holds the plans that removed
+# them), so scanning it would make four gates permanently red.
+# .claude/ is the same kind of thing: a developer's own gitignored machine
+# settings, not something this repository ships.
+EXCLUDED_DIRS = {"plans", ".git", "node_modules", ".remember", "assets", ".github", ".claude"}
 
 # Blocks using these placeholders are illustrative fragments, not whole documents.
 PLACEHOLDER = "..."
@@ -38,17 +46,30 @@ EXIT_CODE_FICTION = "or non-zero"
 INVENTED_AMAZON_Q_SCHEMA = ('before_command', 'action: "block"')
 
 
+SCANNED_SUFFIXES = {".md", ".json", ".yml", ".yaml", ".py", ".sh"}
+
+
+def _excluded(path: pathlib.Path) -> bool:
+    return any(part in EXCLUDED_DIRS for part in path.relative_to(REPO_ROOT).parts[:-1])
+
+
+def _scan(suffixes: set[str]) -> list[pathlib.Path]:
+    return sorted(
+        {
+            p
+            for p in REPO_ROOT.rglob("*")
+            if p.is_file() and p.suffix in suffixes and not _excluded(p)
+        }
+    )
+
+
 def markdown_files() -> list[pathlib.Path]:
-    return sorted(SKILL_DIR.rglob("*.md"))
+    return _scan({".md"})
 
 
 def text_files() -> list[pathlib.Path]:
     """Every file a substring gate should scan: docs, templates, and scripts."""
-    return sorted(
-        p
-        for p in SKILL_DIR.rglob("*")
-        if p.is_file() and p.suffix in {".md", ".json", ".yml", ".yaml", ".py", ".sh"}
-    )
+    return _scan(SCANNED_SUFFIXES)
 
 
 def rel(path: pathlib.Path) -> str:
