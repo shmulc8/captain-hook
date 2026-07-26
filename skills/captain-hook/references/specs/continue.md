@@ -2,6 +2,12 @@
 
 > Source: https://docs.continue.dev/ (index and CLI section) — checked 2026-07-26, no hooks documentation found
 
+> **Not aged**: this file asserts nothing about Continue CLI's hooks, so there
+> is nothing in it to go stale. The provenance gate exempts it by name (see
+> `scripts/verify_docs.py`, `PROVENANCE_EXEMPT`). If Continue CLI's hook
+> documentation is ever located, remove the exemption in the same change that
+> adds the claims.
+
 ## Verification Status
 
 **No official documentation could be located for a Continue CLI hooks system as

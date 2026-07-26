@@ -43,7 +43,7 @@ cd captain-hook
 ## 🏴‍☠️ What Lies in the Treasure Chest
 
 - 📚 **Handbook & Guide (`SKILL.md`)**: Complete instructions on hook fundamentals, event lifecycles, stdin/stdout JSON contracts, and exit code blocking protocols (`0` ALLOW, `2` BLOCK).
-- 🧭 **10-Agent Specifications (`references/specs/`)**: each spec carries a `> Source:` line naming the upstream URL and the date it was last checked against it. The verification suite fails if one is missing.
+- 🧭 **10-Agent Specifications (`references/specs/`)**: each spec carries a `> Source:` line naming the upstream URL and the date it was last checked against it. The verification suite fails if one is missing, warns once a spec passes 180 days, and fails past a year — a snapshot of ten vendor APIs decays on a calendar, so the gate does too.
 - 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Dangerous Command Denylisting, Path-Escape Guards, Auto-Formatting, and Test Gates.
 - 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `.agents/hooks.json`.
 - 🛠️ **Local Verification Suite (`skills/captain-hook/scripts/verify_hooks.sh`)**: Runs the bundled dispatcher against the sample payloads and lints the shipped docs and templates. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly.

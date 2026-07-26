@@ -11,6 +11,7 @@ Stdlib only, by design — a hook-adjacent script must run with no install step.
 
 from __future__ import annotations
 
+import datetime
 import json
 import pathlib
 import re
@@ -188,20 +189,48 @@ def check_hook_command_antipatterns() -> list[str]:
 
 
 PROVENANCE_RE = re.compile(
-    r"^> Source: .*https?://\S+.* — (?:verified|checked) \d{4}-\d{2}-\d{2}", re.M
+    r"^> Source: .*https?://\S+.* — (?:verified|checked) (\d{4}-\d{2}-\d{2})", re.M
 )
+# A vendor hook API drifting for six months without anyone re-reading it is the
+# failure this gate exists for; a year is when the file should be assumed wrong.
+PROVENANCE_WARN_DAYS = 180
+PROVENANCE_FAIL_DAYS = 365
+# A spec that deliberately claims nothing has nothing to go stale.
+PROVENANCE_EXEMPT = {"continue.md"}
 
 
 def check_spec_provenance() -> list[str]:
-    """Every agent spec cites a source URL and the date it was checked.
+    """Every agent spec cites a source URL and a check date that is not ancient.
 
     Turns the provenance convention into a gate. Without it these files drift
-    invisibly — Windsurf's docs already moved hosts once.
+    invisibly — Windsurf's docs already moved hosts once. The date is compared,
+    not merely matched: every spec was written on the same day, so an
+    existence-only check is satisfied forever and the freshness claim in
+    README.md becomes decoration.
     """
+    today = datetime.date.today()
     failures = []
     for path in sorted((SKILL_DIR / "references" / "specs").glob("*.md")):
-        if not PROVENANCE_RE.search(read(path)):
+        match = PROVENANCE_RE.search(read(path))
+        if not match:
             failures.append(f"{rel(path)}: missing '> Source: <url> — verified <YYYY-MM-DD>' line")
+            continue
+        if path.name in PROVENANCE_EXEMPT:
+            continue
+        try:
+            checked = datetime.date.fromisoformat(match.group(1))
+        except ValueError:
+            failures.append(f"{rel(path)}: provenance date {match.group(1)!r} is not a real date")
+            continue
+        age = (today - checked).days
+        if age > PROVENANCE_FAIL_DAYS:
+            failures.append(
+                f"{rel(path)}: last verified {age} days ago ({checked}) — re-read the upstream "
+                f"page and update the date, or mark the spec unverified. Do not bump the date "
+                f"without re-reading it."
+            )
+        elif age > PROVENANCE_WARN_DAYS:
+            print(f"      warning: {rel(path)} last verified {age} days ago ({checked})")
     return failures
 
 
