@@ -61,10 +61,11 @@ Exit `2` is the block signal, but only where the host is still able to act:
 
 ---
 
-## 3. Agents excluded from the matrix above
+## 3. Agents with no blocking contract
 
-These agents have no executable hook system, so there is nothing to map to a
-canonical event. Their specs cover what they *do* offer:
+These agents cannot gate an action. Their specs cover what they *do* offer.
+Aider also appears in the table above, for its two post-edit commands only —
+those run after the write, so they report rather than block.
 
 | Agent | Mechanism | Spec |
 | :--- | :--- | :--- |

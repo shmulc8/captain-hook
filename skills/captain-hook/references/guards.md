@@ -16,7 +16,7 @@ Enforced during `PrePrompt`, `PreCommand`, `PreToolUse`, `pre_user_prompt`.
 
 ### Blocked Regex Patterns:
 
-Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, then run `python3 scripts/sync_patterns.py`.
+Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, then run `python3 skills/captain-hook/scripts/sync_patterns.py`.
 
 <!-- BEGIN:SECRET_PATTERNS -->
 * **AWS Access Key**: `\bAKIA[0-9A-Z]{16}\b`

@@ -12,7 +12,7 @@
     {
       "matcher": "write_file|edit_file",
       "hooks": [
-        { "type": "command", "command": "<CAPTAIN_HOOK> dispatch PostWrite", "timeout": 30 }
+        { "type": "command", "command": "<CAPTAIN_HOOK> dispatch --decision-json PostWrite", "timeout": 30 }
       ]
     }
   ]

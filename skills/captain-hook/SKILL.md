@@ -306,7 +306,7 @@ Every spec carries a `> Source:` line naming the upstream URL and the date it wa
 
 ## 6. Extending the Reference Dispatcher
 
-`scripts/captain_hook.py` is a single ~120-line standalone script with no
+`scripts/captain_hook.py` is a single standalone script with no
 dependencies and no plugin system. You extend it by editing it. That is
 deliberate: a hook script must start fast and must not fail on a missing import.
 
@@ -324,7 +324,7 @@ SECRET_PATTERNS = [
 `SECRET_PATTERNS` is the single source of truth; the copies in
 `references/guards.md`, `references/security_rules.md`, and
 `references/recipes.md` are generated from it. After editing the list, run
-`python3 scripts/sync_patterns.py`. The verification suite runs
+`python3 skills/captain-hook/scripts/sync_patterns.py`. The verification suite runs
 `sync_patterns.py --check` and fails if you skip that step.
 
 ### Adding a blocked command

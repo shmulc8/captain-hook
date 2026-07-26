@@ -335,6 +335,19 @@ def check_aider_template_keys() -> list[str]:
     return failures
 
 
+def check_version_sync() -> list[str]:
+    """package.json and plugin.json declare the same version.
+
+    They agreed by coincidence, with nothing keeping them that way: a bump in
+    one leaves the plugin advertising the old number and nothing catches it.
+    """
+    pkg = json.loads(read(REPO_ROOT / "package.json")).get("version")
+    plugin = json.loads(read(REPO_ROOT / ".claude-plugin" / "plugin.json")).get("version")
+    if pkg != plugin:
+        return [f"package.json version {pkg!r} != .claude-plugin/plugin.json {plugin!r}"]
+    return []
+
+
 def check_ci_guide_matches_workflow() -> list[str]:
     """The CI guide claims to reproduce the workflow exactly; hold it to that."""
     workflow = REPO_ROOT / ".github" / "workflows" / "verify.yml"
@@ -407,6 +420,7 @@ CHECKS = [
     ("Aider template keys are real", check_aider_template_keys),
     ("SKILL.md description names every agent", check_skill_description),
     ("Every blocking agent has a payload fixture", check_blocking_agent_fixtures),
+    ("Version strings agree", check_version_sync),
 ]
 
 

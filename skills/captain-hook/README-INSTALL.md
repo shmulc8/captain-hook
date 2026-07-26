@@ -10,7 +10,10 @@ python3 /absolute/path/to/captain-hook/skills/captain-hook/scripts/captain_hook.
 ```
 
 The script reads the host agent's JSON payload from `stdin` and exits `0`
-(allow) or `2` (block). It requires Python 3.9+ and no third-party packages.
+(allow) or `2` (block) on the agents that use exit codes. Antigravity does not:
+it reads a `decision` object from stdout, so pass `--decision-json` there — see
+the table in [`SKILL.md`](SKILL.md) section 1. Requires Python 3.9+ and no
+third-party packages.
 
 ## Substituting the path in the shipped templates
 

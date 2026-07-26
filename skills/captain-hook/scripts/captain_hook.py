@@ -10,8 +10,6 @@ import os
 import re
 import sys
 
-VERSION = "1.0.0"
-
 # --- Security Guards & Patterns ---
 
 SECRET_PATTERNS = [
