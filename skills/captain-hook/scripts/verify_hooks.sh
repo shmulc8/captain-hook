@@ -214,6 +214,31 @@ run_relative_path_tests() {
 }
 run_relative_path_tests
 
+# The pre-commit fallback is the only enforcement path this repo offers the
+# five agents that cannot block. It used to exit 0 unconditionally: git gives
+# a commit hook no stdin and no arguments, so every extracted field was empty.
+run_precommit_tests() {
+  local tmp
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+  git -C "$tmp" init -q
+  git -C "$tmp" config user.email t@example.com
+  git -C "$tmp" config user.name t
+
+  printf 'AKIAAAAAAAAAAAAAAAAA\n' > "$tmp/leak.txt"
+  git -C "$tmp" add leak.txt
+  run_test "Staged secret blocks the commit (Block)" "$ROOT_DIR/examples/payloads/empty.json" "PreCommit" 2 "$tmp"
+
+  git -C "$tmp" reset -q
+  printf 'hello world\n' > "$tmp/clean.txt"
+  git -C "$tmp" add clean.txt
+  run_test "Clean staged change (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreCommit" 0 "$tmp"
+
+  git -C "$tmp" reset -q
+  run_test "Nothing staged (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreCommit" 0 "$tmp"
+}
+run_precommit_tests
+
 echo -n "  Testing [Repo root of '/' does not blanket-block] ... "
 if python3 -c '
 import sys

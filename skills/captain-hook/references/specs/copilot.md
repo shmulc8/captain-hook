@@ -51,14 +51,21 @@ git's, not Copilot's.
 ```
 
 ### `.git/hooks/pre-commit`
+
+Copy the shipped template rather than hand-rolling it — it reads the staged
+diff, which is the only thing a commit hook is given:
+
 ```bash
-#!/usr/bin/env bash
-python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py dispatch PreCommit
-if [ $? -ne 0 ]; then
-    echo "Commit blocked by captain-hook!" >&2
-    exit 1
-fi
+cp skills/captain-hook/examples/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+# replace <CAPTAIN_HOOK> with: python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py
 ```
+
+The gate scans the **added lines** of the staged diff for secret patterns and
+checks the staged paths for repository escapes. Only the first staged path is
+checked against the path guard. It does not see the shell commands an agent
+ran — nothing at commit time can. A destructive command is caught by an
+executable hook or not at all.
 
 Remember that a `pre-commit` hook runs at commit time, not at edit time: it
 catches what reaches a commit, not what the agent writes to your working tree.

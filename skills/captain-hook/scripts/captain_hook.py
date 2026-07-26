@@ -257,6 +257,9 @@ BLOCKING_EVENTS = frozenset({
     "pre_user_prompt", "pre_read_code", "pre_write_code", "pre_run_command", "pre_mcp_tool_use",
     "UserPromptSubmit", "PreToolUse", "Stop", "SubagentStop", "PreCompact",
     "PreInvocation",
+    # git's own contract: any non-zero exit from a pre-commit hook aborts the
+    # commit. This is the fallback gate for the five agents that cannot block.
+    "PreCommit",
 })
 
 
@@ -483,6 +486,45 @@ def _run_formatter(argv: list[str], path: str) -> None:
         sys.stderr.write(f"captain-hook: Warning: formatter failed on '{path}': {exc}\n")
 
 
+# A commit hook gets no stdin and no arguments from git, so the fields every
+# other event carries are empty. Reading the staged diff is the only way this
+# gate can inspect anything — and it is the one place a subprocess is
+# acceptable: a commit is not the per-tool-call hot path _repo_root() is
+# written for, and it happens orders of magnitude less often.
+GIT_TIMEOUT_SECONDS = 10
+
+
+def _staged(root: str) -> tuple[str, list[str]]:
+    """(added lines of the staged diff, staged file paths). Empty on failure.
+
+    Failure here must not block: a hook that aborts every commit because git
+    was unavailable gets deleted, and a deleted hook protects nothing.
+    """
+    def run(args: list[str]) -> str:
+        try:
+            result = subprocess.run(
+                ["git", *args], cwd=root, capture_output=True, text=True,
+                timeout=GIT_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            sys.stderr.write(f"captain-hook: Warning: git {args[0]} failed ({exc}) — commit not inspected\n")
+            return ""
+        if result.returncode != 0:
+            sys.stderr.write(f"captain-hook: Warning: git {args[0]} exited {result.returncode} — commit not inspected\n")
+            return ""
+        return result.stdout
+
+    diff = run(["diff", "--cached", "--unified=0", "--no-color"])
+    # Only ADDED lines. A diff's context and removed lines carry the secret
+    # being deleted, and blocking a commit that removes a key is backwards.
+    added = "\n".join(
+        line[1:] for line in diff.splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    )
+    names = [n for n in run(["diff", "--cached", "--name-only"]).splitlines() if n]
+    return added, names
+
+
 def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | None = None) -> int:
     payload = {}
     if stdin_data.strip():
@@ -512,6 +554,16 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
     # post-event scan honors them too — otherwise an allowlisted fixture still
     # warns on every save, which is the noise this exists to remove.
     config = load_config(root)
+
+    if event_name == "PreCommit" and not (prompt or command or path):
+        staged_text, staged_paths = _staged(root)
+        # The added lines become the scanned text; the file list drives the
+        # path guard. Both go through the same guards every other event uses,
+        # so allow_secrets_in and ignore_paths keep working. Only the first
+        # staged path reaches the path guard — see specs/copilot.md.
+        prompt = staged_text
+        if staged_paths:
+            path = staged_paths[0]
 
     if _matches_any(path, config["ignore_paths"], root, base):
         sys.stderr.write(
