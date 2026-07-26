@@ -92,6 +92,14 @@ Event-specific fields are also camelCase — for example `toolCall` on
 `PreToolUse` / `PostToolUse`, `stepIdx` and `invocationNum` on the invocation
 events, and `terminationReason` on `Stop`.
 
+> **Verification status**: these field names come from the upstream
+> documentation cited above, not from a captured payload. The bundled
+> dispatcher reads `toolCall.command`, `toolCall.filePath`, `toolCall.toolName`
+> and `workspacePaths` on that basis. If you run captain-hook against a live
+> Antigravity session, capture one `PreToolUse` payload into
+> `examples/payloads/` and correct this note — that is the one piece of
+> evidence this file does not have.
+
 ---
 
 ## 6. Decision Contract (stdout JSON, not exit codes)

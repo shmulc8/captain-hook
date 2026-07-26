@@ -75,6 +75,11 @@ run_test "Empty Payload (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreTo
 run_test "Non-JSON stdin (Allow)" "$ROOT_DIR/examples/payloads/malformed.txt" "PreToolUse" 0
 run_test "Windsurf tool_info Force Push (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "pre_run_command" 2
 run_test "Windsurf tool_info Clean (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_clean.json" "pre_run_command" 0
+# Antigravity nests tool fields under a camelCase `toolCall`. Before this was
+# handled the dispatcher read "" for every field and allowed everything, on the
+# one agent that has no exit-code contract to make the failure visible.
+run_test "Antigravity toolCall force push (Block)" "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_run_command.json" "PreCommand" 2
+run_test "Antigravity toolCall clean (Allow)"      "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_clean.json"       "PreCommand" 0
 run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_gitlab_token.json" "beforeSubmitPrompt" 2
 run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
 # Real sk-proj- keys carry hyphens inside the body. A pattern that only accepts

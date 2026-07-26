@@ -68,10 +68,30 @@ def _as_str(value) -> str:
     return json.dumps(value, default=str)
 
 
+def _first_str(value) -> str:
+    """First element of a list-shaped field, or the value if it is already a str.
+
+    Antigravity's `workspacePaths` is plural (specs/antigravity.md section 5).
+    A repository root is singular, so the first entry is the only defensible
+    reading — and a wrong root is worse than no root, which is why an
+    unexpected shape returns "" and lets _repo_root() fall back.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)) and value and isinstance(value[0], str):
+        return value[0]
+    return ""
+
+
 def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
     tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
     # Windsurf/Cascade nests every per-event field under tool_info.
     tool_info = payload.get("tool_info") if isinstance(payload.get("tool_info"), dict) else {}
+    # Antigravity sends camelCase and nests tool fields under toolCall
+    # (specs/antigravity.md section 5). Documentation-derived: nothing here has
+    # been run against a live Antigravity session, so these are APPENDED to the
+    # chains below and never replace a verified spelling.
+    tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
 
     prompt = (
         payload.get("prompt")
@@ -88,6 +108,7 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
         or tool_input.get("file_path")
         or tool_input.get("path")
         or tool_info.get("file_path")
+        or tool_call.get("filePath")
         or ""
     )
     command = (
@@ -99,6 +120,7 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
         or payload.get("cmd")
         or tool_input.get("command")
         or tool_info.get("command_line")
+        or tool_call.get("command")
         or ""
     )
     tool = (
@@ -106,6 +128,7 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
         or payload.get("tool_name")
         or tool_info.get("mcp_tool_name")
         or payload.get("agent_action_name")
+        or tool_call.get("toolName")
         or ""
     )
     server = (
@@ -114,10 +137,16 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
         or tool_info.get("mcp_server_name")
         or ""
     )
-    args = payload.get("args") or payload.get("arguments") or tool_input or tool_info or {}
+    args = payload.get("args") or payload.get("arguments") or tool_input or tool_info or tool_call or {}
     # The host's working directory is not reliably the repository (see
     # README-INSTALL.md), so prefer the one the payload carries.
-    cwd = payload.get("cwd") or payload.get("workspace_root") or tool_info.get("cwd") or ""
+    cwd = (
+        payload.get("cwd")
+        or payload.get("workspace_root")
+        or tool_info.get("cwd")
+        or _first_str(payload.get("workspacePaths"))
+        or ""
+    )
 
     return (
         _as_str(prompt),

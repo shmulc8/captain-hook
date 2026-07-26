@@ -60,7 +60,7 @@ cd captain-hook
 | **Cursor AI** | `.cursor/hooks.json` | exit `2` or `{"permission":"deny"}` — **fail-open unless `failClosed: true`** | [Cursor Hooks Spec](skills/captain-hook/references/specs/cursor.md) |
 | **Windsurf (Cascade)** | `.windsurf/hooks.json` | exit `2`, the five `pre_*` hooks only | [Windsurf Hooks Spec](skills/captain-hook/references/specs/windsurf.md) |
 | **OpenHands** | `.openhands/hooks.json` | exit `2`, or `{"decision":"deny"}` on stdout | [OpenHands Hooks Spec](skills/captain-hook/references/specs/openhands_devin.md) |
-| **Antigravity (AGY)** | `.agents/hooks.json` | `{"decision":"deny"}` on stdout — **not** exit codes | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
+| **Antigravity (AGY)** | `.agents/hooks.json` | `{"decision":"deny"}` on stdout — **not** exit codes — payload extraction is documentation-derived, not yet run against a live session | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
 
 ### 📜 Agents with rules and instruction files (advisory only — cannot block)
 
