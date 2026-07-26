@@ -269,9 +269,11 @@ process.stdin.on('end', () => {
 
 Runs the unit test suite before allowing turn completion or commit.
 
-The 120-second timeout below is a starting point: set it *below* the host's own
-hook timeout (30s on Antigravity, 60s on Claude Code, unspecified on Windsurf).
-A `Stop` hook that outlives the host's timeout is killed with no verdict.
+The 20-second timeout below clears the tightest host limit (30s on Antigravity,
+60s on Claude Code, unspecified on Windsurf). Raise it only as far as your own
+host allows: a `Stop` hook that outlives the host's timeout is killed with no
+verdict, so a suite that needs longer than the host permits cannot be gated
+this way at all — split it, or gate it in CI instead.
 
 ```python
 #!/usr/bin/env python3
@@ -281,7 +283,7 @@ import sys, subprocess
 # A hook must not outlive the host's own hook timeout — 30s on Antigravity,
 # 60s on Claude Code, unspecified on Windsurf — so it gets its own, shorter
 # one. Without it a hung test suite stalls the agent indefinitely.
-TEST_TIMEOUT_SECONDS = 120
+TEST_TIMEOUT_SECONDS = 20
 
 def main():
     try:
