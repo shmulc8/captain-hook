@@ -50,7 +50,7 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
     ],
     "afterFileEdit": [
       {
-        "command": "npx prettier --write \"$PATH\""
+        "command": "bash .cursor/hooks/format.sh"
       }
     ],
     "stop": [
@@ -61,9 +61,10 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
   }
 }
 ```
-> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
-> locally. In a hook that runs on every file write, prefer
-> `./node_modules/.bin/prettier` and pin the version.
+The edited file's path arrives in the stdin payload — see section 4 — not on
+the command line. The formatter script also resolves the local binary rather
+than `npx`, which downloads an unpinned package from the npm registry inside a
+hook that runs on every write.
 
 ### Key Configuration Options:
 - `command`: The executable shell string to run.

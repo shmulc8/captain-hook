@@ -60,7 +60,7 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
         "hooks": [
           {
             "type": "command",
-            "command": "npx prettier --write \"$PATH\""
+            "command": "bash .claude/hooks/format.sh"
           }
         ]
       }
@@ -68,9 +68,10 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
   }
 }
 ```
-> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
-> locally. In a hook that runs on every file write, prefer
-> `./node_modules/.bin/prettier` and pin the version.
+The edited file's path arrives in the stdin payload — see section 4 — not on
+the command line. The formatter script also resolves the local binary rather
+than `npx`, which downloads an unpinned package from the npm registry inside a
+hook that runs on every write.
 
 ### Schema Parameters:
 - `matcher`: Regex string matching the target tool name (e.g. `Bash`, `Edit|Write`, `Glob`, `Grep`).

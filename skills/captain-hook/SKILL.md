@@ -74,13 +74,33 @@ Cursor reads `.cursor/hooks.json` in your project root or `~/.cursor/hooks.json`
   "hooks": {
     "beforeSubmitPrompt": [ { "command": "python3 .cursor/hooks/check_secrets.py" } ],
     "beforeShellExecution": [ { "command": "bash .cursor/hooks/block_danger.sh" } ],
-    "afterFileEdit": [ { "command": "npx prettier --write \"$PATH\"" } ]
+    "afterFileEdit": [ { "command": "bash .cursor/hooks/format.sh" } ]
   }
 }
 ```
-> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
-> locally. In a hook that runs on every file write, prefer
-> `./node_modules/.bin/prettier` and pin the version.
+
+```bash
+#!/usr/bin/env bash
+# .cursor/hooks/format.sh — the edited file's path arrives in the stdin
+# payload, not as a shell variable. `$PATH` is the shell's search path and is
+# never a filename.
+FILE=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('filepath') or d.get('tool_input',{}).get('file_path',''))")
+[ -n "$FILE" ] || exit 0
+# The local binary, never the npm auto-install runner: it downloads an unpinned
+# package from the registry when prettier is absent, which is a network fetch
+# and arbitrary code execution inside a hook that runs on every write.
+[ -x ./node_modules/.bin/prettier ] || exit 0
+./node_modules/.bin/prettier --write "$FILE"
+```
+
+> ⚠️ Two things this example is careful about. The file path arrives in the
+> **stdin payload**, not as a shell variable — `$PATH` is the shell's search
+> path and would pass prettier a list of directories. And it runs the local
+> binary rather than `npx`, which downloads an unpinned package from the npm
+> registry when prettier is absent: a network fetch and arbitrary code
+> execution inside a hook that fires on every write. The bundled dispatcher
+> resolves the binary the same way — see
+> [`references/guards.md`](references/guards.md) section 4.
 
 #### Step 2: Write the Python Hook Script (`.cursor/hooks/check_secrets.py`)
 ```python

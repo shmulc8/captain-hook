@@ -29,7 +29,7 @@ Cursor AI features a native **Hooks** system that triggers custom scripts during
       { "command": "python3 .cursor/hooks/read_guard.py" }
     ],
     "afterFileEdit": [
-      { "command": "npx prettier --write \"$PATH\"" }
+      { "command": "bash .cursor/hooks/format.sh" }
     ],
     "stop": [
       { "command": "python3 .cursor/hooks/on_stop.py" }
@@ -37,9 +37,23 @@ Cursor AI features a native **Hooks** system that triggers custom scripts during
   }
 }
 ```
-> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
-> locally. In a hook that runs on every file write, prefer
-> `./node_modules/.bin/prettier` and pin the version.
+```bash
+#!/usr/bin/env bash
+# .cursor/hooks/format.sh — the edited file's path arrives in the stdin
+# payload, not as a shell variable. `$PATH` is the shell's search path and is
+# never a filename.
+FILE=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('filepath') or d.get('tool_input',{}).get('file_path',''))")
+[ -n "$FILE" ] || exit 0
+# The local binary, never the npm auto-install runner: it downloads an unpinned
+# package from the registry when prettier is absent, which is a network fetch
+# and arbitrary code execution inside a hook that runs on every write.
+[ -x ./node_modules/.bin/prettier ] || exit 0
+./node_modules/.bin/prettier --write "$FILE"
+```
+
+> ⚠️ The edited file's path arrives in the **stdin payload**, not on the
+> command line, and the local binary is used rather than `npx`, which downloads
+> an unpinned package from the npm registry inside a hook.
 
 ---
 

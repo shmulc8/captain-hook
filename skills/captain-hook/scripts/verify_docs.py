@@ -161,6 +161,32 @@ def _substring_gate(needles: tuple[str, ...], why: str) -> list[str]:
     return failures
 
 
+# `$PATH` is the shell's search path, never a filename; four shipped examples
+# passed it to prettier as the file to format. `npx` in a hook fetches an
+# unpinned package from the registry on every miss — a network call and
+# arbitrary code execution inside a hook, which is why the dispatcher resolves
+# binaries directly (references/guards.md section 4).
+HOOK_COMMAND_ANTIPATTERNS = (
+    ('"$PATH"', "$PATH is the shell's search path, not the edited file"),
+    ("npx ", "npx fetches an unpinned package from the network inside a hook"),
+)
+
+
+def check_hook_command_antipatterns() -> list[str]:
+    """No shipped example wires a hook command that cannot work or fetches code."""
+    failures = []
+    for path in text_files():
+        if path.name == pathlib.Path(__file__).name:
+            continue  # this file names the forbidden strings on purpose
+        for lineno, line in enumerate(read(path).splitlines(), 1):
+            if '"command"' not in line and "command:" not in line:
+                continue
+            for needle, why in HOOK_COMMAND_ANTIPATTERNS:
+                if needle in line:
+                    failures.append(f"{rel(path)}:{lineno}: {needle!r} — {why}")
+    return failures
+
+
 PROVENANCE_RE = re.compile(
     r"^> Source: .*https?://\S+.* — (?:verified|checked) \d{4}-\d{2}-\d{2}", re.M
 )
@@ -234,6 +260,7 @@ CHECKS = [
     ("SKILL.md heading numbers are contiguous", check_heading_sequence),
     ("Relative markdown links resolve", check_relative_links),
     ("Fenced Python blocks compile", check_python_blocks),
+    ("Hook commands avoid $PATH and npx", check_hook_command_antipatterns),
 ]
 
 
