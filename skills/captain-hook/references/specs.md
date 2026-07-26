@@ -67,12 +67,24 @@ This document provides exact, authoritative specifications for all supported AI 
   ```json
   {
     "hooks": {
-      "UserPromptSubmit": [ { "command": "..." } ],
-      "PreToolUse": [ { "command": "..." } ],
-      "PostToolUse": [ { "command": "..." } ],
-      "SessionStart": [ { "command": "..." } ],
-      "SessionEnd": [ { "command": "..." } ],
-      "Stop": [ { "command": "..." } ]
+      "UserPromptSubmit": [
+        { "hooks": [ { "type": "command", "command": "..." } ] }
+      ],
+      "PreToolUse": [
+        { "matcher": "Bash|Edit|Write", "hooks": [ { "type": "command", "command": "..." } ] }
+      ],
+      "PostToolUse": [
+        { "matcher": "Edit|Write", "hooks": [ { "type": "command", "command": "..." } ] }
+      ],
+      "SessionStart": [
+        { "hooks": [ { "type": "command", "command": "..." } ] }
+      ],
+      "SessionEnd": [
+        { "hooks": [ { "type": "command", "command": "..." } ] }
+      ],
+      "Stop": [
+        { "hooks": [ { "type": "command", "command": "..." } ] }
+      ]
     }
   }
   ```
@@ -80,6 +92,7 @@ This document provides exact, authoritative specifications for all supported AI 
   - `tool_name`: Name of tool (`Edit`, `Write`, `Bash`, `Glob`, etc.)
   - `tool_input`: Object containing `file_path` or `command`
   - `prompt`: User prompt string
+- **Schema note**: every event maps to an array of matcher groups; each group holds a nested `hooks` array whose entries set `type` to `command` alongside the `command` string. `matcher` is a regex over the tool name and only applies to `PreToolUse`/`PostToolUse`. An event array whose entries carry `command` directly, with no nested `hooks` array, is invalid.
 
 ---
 

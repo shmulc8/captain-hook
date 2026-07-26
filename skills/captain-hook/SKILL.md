@@ -117,11 +117,27 @@ Claude Code reads `PreToolUse` and `PostToolUse` hooks from `.claude/settings.js
 ```json
 {
   "hooks": {
-    "PreToolUse": [ { "command": "python3 .claude/hooks/pre_tool_guard.py" } ],
-    "PostToolUse": [ { "command": "npm test" } ]
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "python3 .claude/hooks/pre_tool_guard.py" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "npm test" }
+        ]
+      }
+    ]
   }
 }
 ```
+
+Each event maps to an array of **matcher groups**, and each group holds a nested `hooks` array. The flat form — an event array whose entries carry `command` directly, with no nested `hooks` array — is **not** valid, and Claude Code will not run it. Omit `matcher` (or use `"*"`) to match every tool.
 
 #### Step 2: Write the PreToolUse Guard (`.claude/hooks/pre_tool_guard.py`)
 ```python

@@ -16,20 +16,32 @@ Claude Code supports shell script execution hooks defined in `.claude/settings.j
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "command": "python3 .claude/hooks/prompt_filter.py" }
+      { "hooks": [ { "type": "command", "command": "python3 .claude/hooks/prompt_filter.py" } ] }
     ],
     "PreToolUse": [
-      { "command": "python3 .claude/hooks/pre_tool_guard.py" }
+      {
+        "matcher": "Bash",
+        "hooks": [ { "type": "command", "command": "python3 .claude/hooks/pre_tool_guard.py", "timeout": 60 } ]
+      }
     ],
     "PostToolUse": [
-      { "command": "bash .claude/hooks/post_tool.sh" }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [ { "type": "command", "command": "bash .claude/hooks/post_tool.sh" } ]
+      }
     ],
     "Stop": [
-      { "command": "python3 .claude/hooks/on_stop.py" }
+      { "hooks": [ { "type": "command", "command": "python3 .claude/hooks/on_stop.py" } ] }
     ]
   }
 }
 ```
+
+### Schema Parameters
+- `matcher`: regex matching the target tool name (`Bash`, `Edit|Write`, `*`). Only meaningful for `PreToolUse` / `PostToolUse`; omit it for lifecycle events.
+- `type`: must be `"command"`.
+- `command`: the executable script or shell command string.
+- `timeout`: execution timeout in seconds (default 60).
 
 ---
 
@@ -60,7 +72,10 @@ Claude Code passes event context as JSON over `stdin`:
 {
   "hooks": {
     "PreToolUse": [
-      { "command": "python3 .claude/hooks/guard.py" }
+      {
+        "matcher": "Bash",
+        "hooks": [ { "type": "command", "command": "python3 .claude/hooks/guard.py" } ]
+      }
     ]
   }
 }
