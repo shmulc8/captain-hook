@@ -1,5 +1,7 @@
 # 🪝 `captain-hook`
 
+[![Verify](https://github.com/shmulc8/captain-hook/actions/workflows/verify.yml/badge.svg)](https://github.com/shmulc8/captain-hook/actions/workflows/verify.yml)
+
 > **The Universal Agent Skill & Claude Plugin for Navigating AI Coding Agent Hooks.**
 
 ![Captain Hook AI Agent Infinity Gauntlet](assets/captain_hook_gauntlet.jpg)
