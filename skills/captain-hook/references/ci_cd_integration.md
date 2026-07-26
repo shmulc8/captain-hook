@@ -11,7 +11,7 @@ Add the following to `.git/hooks/pre-commit` to prevent committing invalid or un
 ```bash
 #!/usr/bin/env bash
 # .git/hooks/pre-commit
-./scripts/verify_hooks.sh
+./skills/captain-hook/scripts/verify_hooks.sh
 if [ $? -ne 0 ]; then
     echo "Pre-commit hook failed! Please resolve policy issues." >&2
     exit 1
@@ -23,28 +23,53 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
-## 2. GitHub Actions CI Workflow (`.github/workflows/verify-hooks.yml`)
+## 2. GitHub Actions CI Workflow (`.github/workflows/verify.yml`)
+
+This repository runs exactly this workflow — see [`.github/workflows/verify.yml`](../../../.github/workflows/verify.yml).
 
 ```yaml
-name: Verify AI Agent Hooks
+name: Verify
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.12']
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
+
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Run Hook Verification Suite
+          python-version: ${{ matrix.python-version }}
+
+      - name: Confirm no dependencies are needed
         run: |
-          chmod +x scripts/verify_hooks.sh
-          ./scripts/verify_hooks.sh
+          python3 -c "import json, re, os, sys, shutil, subprocess, argparse; print('stdlib ok')"
+
+      - name: Run verification suite
+        run: bash skills/captain-hook/scripts/verify_hooks.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shellcheck
+        run: shellcheck skills/captain-hook/scripts/*.sh
 ```
+
+The script's mode bit (`100755`) is committed, so no `chmod` step is needed;
+invoking through `bash` works regardless. The workflow installs nothing — the
+suite is bash plus stdlib Python, and the 3.9 leg is there because hook scripts
+run on whatever Python a developer happens to have.

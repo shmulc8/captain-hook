@@ -29,13 +29,35 @@ sequenceDiagram
     else Policy Violated
         Hook-->>Host: Prints reason to stderr & Exits with Code 2 (BLOCK)
         Host-->>User: Cancels action & displays stderr error
+    else Hook Crashes (exit 1)
+        Hook-->>Host: Non-zero, non-2 exit
+        Host->>Action: Executes action anyway (fail-open)
     end
 ```
 
-### The Universal Exit Code Protocol
-- **Exit Code `0` (ALLOW)**: The hook approves the operation. Standard output may be logged.
-- **Exit Code `1` (RUNTIME ERROR)**: The hook script crashed. Logged to debug console.
-- **Exit Code `2` (BLOCK / REJECT)**: The hook explicitly **REJECTS** the operation. Output written to `stderr` is fed back into the AI context or shown to the user.
+### Exit Codes: What Actually Blocks
+
+There is no single universal protocol. Three rules hold everywhere, and the
+rest is per-agent:
+
+- **Exit `0`** — allow. Universally true.
+- **Exit `1` and other non-zero codes** — a hook *error*, **not** a block. The
+  host logs it and **proceeds with the action**. An unhandled exception in your
+  hook script exits `1`, which means your guard fails **open**. Catch your
+  exceptions and return `2` deliberately.
+- **Exit `2`** — the block signal on Claude Code, Cursor, and Windsurf — but
+  only for events that are capable of blocking, and only *before* the action
+  runs. Google Antigravity does not use exit codes at all.
+
+| Agent | Exit 2 blocks? | Fail-open on crash? |
+| :--- | :--- | :--- |
+| **Claude Code** | Only on gate events — `PreToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact` among them | Yes — non-2 codes proceed |
+| **Cursor** | Yes, equivalent to `permission: "deny"` | **Yes by default** — set `failClosed: true` per hook to fail closed |
+| **Windsurf** | Only on the five `pre_*` hooks | Yes — other codes proceed |
+| **Antigravity** | **No** — decide via `{"decision": "deny"}` on stdout | See its spec |
+
+The single most common mistake is assuming a `post_*` hook can block. It cannot:
+the action already happened. Post hooks report; they do not gate.
 
 ---
 
@@ -56,6 +78,9 @@ Cursor reads `.cursor/hooks.json` in your project root or `~/.cursor/hooks.json`
   }
 }
 ```
+> ⚠️ `npx` downloads `prettier` from the npm registry if it is not installed
+> locally. In a hook that runs on every file write, prefer
+> `./node_modules/.bin/prettier` and pin the version.
 
 #### Step 2: Write the Python Hook Script (`.cursor/hooks/check_secrets.py`)
 ```python
@@ -96,8 +121,8 @@ Windsurf loads hooks from `.windsurf/hooks.json` (Workspace), `~/.codeium/windsu
 #!/usr/bin/env bash
 # Read stdin JSON passed by Windsurf
 PAYLOAD=$(cat)
-# Windsurf passes command string in command_string
-CMD=$(echo "$PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('command_string', ''))")
+# Windsurf nests the command under tool_info.command_line
+CMD=$(echo "$PAYLOAD" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_info', {}).get('command_line', ''))")
 
 if [[ "$CMD" =~ "rm -rf" ]] || [[ "$CMD" =~ "git push --force" ]]; then
     echo "Blocked: Dangerous command '$CMD' is forbidden by project safety hook!" >&2
@@ -117,11 +142,27 @@ Claude Code reads `PreToolUse` and `PostToolUse` hooks from `.claude/settings.js
 ```json
 {
   "hooks": {
-    "PreToolUse": [ { "command": "python3 .claude/hooks/pre_tool_guard.py" } ],
-    "PostToolUse": [ { "command": "npm test" } ]
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "python3 .claude/hooks/pre_tool_guard.py" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "npm test" }
+        ]
+      }
+    ]
   }
 }
 ```
+
+Each event maps to an array of **matcher groups**, and each group holds a nested `hooks` array. The flat form — an event array whose entries carry `command` directly, with no nested `hooks` array — is **not** valid, and Claude Code will not run it. Omit `matcher` (or use `"*"`) to match every tool.
 
 #### Step 2: Write the PreToolUse Guard (`.claude/hooks/pre_tool_guard.py`)
 ```python
@@ -143,22 +184,39 @@ sys.exit(0)
 
 ---
 
-### ⚡ D. Antigravity AGY (`hooks/prevent.py`)
+### ⚡ D. Antigravity (`.agents/hooks.json`)
 
-Antigravity executes `hooks/prevent.py` prior to applying `--fix` or file mutations.
+Antigravity reads `hooks.json` from its customization directory — `.agents/` in the workspace, or `~/.gemini/config/` globally.
 
+Antigravity is the exception to the exit-code pattern used by the agents above — it reads a `decision` field from stdout. A hook that exits `2` blocks nothing here, so the dispatcher is wired with `--decision-json`, which makes it print `{"decision": "deny", "reason": "..."}` alongside the exit code. Drop the flag and the guards still run, but nothing they find can stop the action.
+
+#### Step 1: Create `.agents/hooks.json`
+```json
+{
+  "enabled": true,
+  "PreToolUse": [
+    {
+      "matcher": "run_command",
+      "hooks": [
+        { "type": "command", "command": "python3 .agents/hooks/guard_command.py", "timeout": 30 }
+      ]
+    }
+  ]
+}
+```
+
+#### Step 2: Write the PreToolUse Guard (`.agents/hooks/guard_command.py`)
 ```python
 #!/usr/bin/env python3
-"""Antigravity write-time prevention hook."""
-import sys, subprocess
+import json, sys
 
-# Ensure git working tree is clean before allowing auto-fix
-res = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-if res.stdout.strip():
-    sys.stderr.write("captain-obvious: uncommitted changes present — commit or stash before running --fix\n")
-    sys.exit(2)
+payload = json.load(sys.stdin)
+cmd = payload.get("toolCall", {}).get("command", "")
 
-sys.exit(0)
+if "--force" in cmd:
+    print(json.dumps({"decision": "deny", "reason": "force push is blocked by policy"}))
+else:
+    print(json.dumps({"decision": "allow"}))
 ```
 
 ---
@@ -180,79 +238,114 @@ test-cmd: "pytest"
 ## 3. Ready-to-Use Hook Recipes
 
 Read the reference guides for full copy-pasteable script implementations:
-- [`references/recipes.md`](references/recipes.md) — 5 complete hook scripts (Secret Scanner, Command Sandbox, Symlink Guard, Auto-Formatter, Test Gate).
+- [`references/recipes.md`](references/recipes.md) — 5 complete hook scripts (Secret Scanner, Dangerous Command Denylist, Path-Escape Guard, Auto-Formatter, Test Gate).
 - [`references/how_to_write_cursor_hooks.md`](references/how_to_write_cursor_hooks.md) — Cursor hook tutorial.
 - [`references/how_to_write_windsurf_hooks.md`](references/how_to_write_windsurf_hooks.md) — Windsurf hook tutorial.
 - [`references/how_to_write_claude_hooks.md`](references/how_to_write_claude_hooks.md) — Claude Code hook tutorial.
 
 ---
 
-## 5. Verification, Security Catalogs & CI Integration
+## 4. Verification, Security Catalogs & CI Integration
 
 `captain-hook` includes automated testing and governance tools for production readiness before going public:
 
-- 🧪 **Automated Verification Suite (`./scripts/verify_hooks.sh`)**: Test your project's hook scripts locally against sample `stdin` payloads before deploying.
+- 🧪 **Automated Verification Suite (`skills/captain-hook/scripts/verify_hooks.sh`, from the repository root)**: Runs the bundled reference dispatcher against sample `stdin` payloads and lints the shipped documentation and config templates for schema drift. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly (see [`references/debugging.md`](references/debugging.md)).
 - 📂 **Sample Payloads (`examples/payloads/`)**: Real-world JSON stdin payload files for testing `beforeShellExecution`, `PreToolUse`, and `pre_write_code`.
-- 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, command sandboxing, symlink guard, MCP governance).
+- 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, dangerous-command denylist, path-escape guard, MCP governance).
 - 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.
 - 🚀 **[CI/CD Integration Guide](references/ci_cd_integration.md)** — Integrating hook verification into `.git/hooks/pre-commit` and GitHub Actions workflows.
+- 🔓 **[Overrides (`.captain-hook.json`)](references/guards.md)** — how to allowlist a path or a command when a guard fires on legitimate work, and why every override announces itself. Template: [`examples/captain-hook.example.json`](examples/captain-hook.example.json).
+- 📦 **[Invocation & Install Guide](README-INSTALL.md)** — there is no `captain-hook` binary; `<CAPTAIN_HOOK>` in the shipped templates stands for `python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py`.
 
 ---
 
-## 6. Complete Agent Specification Library (`references/specs/`)
+## 5. Complete Agent Specification Library (`references/specs/`)
 
-`captain-hook` contains **exhaustive, self-contained specifications** for every major AI coding agent:
+Every spec carries a `> Source:` line naming the upstream URL and the date it was last checked. The roster is split by what an agent can actually do.
 
-- 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), and event lifecycle.
-- 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, Exit Code 2 cancellation, and `pre_*`/`post_*` events.
+### Agents with executable hooks (can block an action)
+
 - 🤖 **[Claude Code Specification](references/specs/claude_code.md)** — `.claude/settings.json` schema, `PreToolUse`/`PostToolUse`, and native tool payload shapes.
-- ⚡ **[Antigravity AGY Specification](references/specs/antigravity.md)** — `hooks/prevent.py` write-time hook and `--check` CI gates.
-- 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml` schema, `auto-lint`, `lint-cmd`, and closed-loop feedback.
-- 🔄 **[Continue CLI Specification](references/specs/continue.md)** — `~/.continue/settings.json` schema and 17 CLI event hooks.
-- 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules`, `.roomodes`, and custom mode tools.
-- 👐 **[OpenHands & Devin Specification](references/specs/openhands_devin.md)** — `config.toml` action interceptors and observation listeners.
-- 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` and pre-commit git hooks.
-- 🅰️ **[Amazon Q Specification](references/specs/amazon_q.md)** — `.amazonq/rules` and CLI customization hooks.
+- 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), the stdout `permission` form, and the fail-open default.
+- 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, the nested `tool_info` payload, and exit-2 cancellation on the five `pre_*` hooks.
+- 👐 **[OpenHands Hooks Specification](references/specs/openhands_devin.md)** — `.openhands/hooks.json`, six lifecycle events, exit `2` or a stdout `decision` field.
+- ⚡ **[Antigravity Specification](references/specs/antigravity.md)** — `.agents/hooks.json` schema, camelCase payloads, and the stdout `decision` contract (no exit codes).
+
+### Agents with rules and instruction files
+
+- 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml`, `auto-lint`/`lint-cmd`, and the post-edit feedback loop — **advisory only, cannot block**.
+- 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules` rules and `.roomodes` custom modes — **advisory only, cannot block**.
+- 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` plus git `pre-commit` hooks — **advisory only, cannot block**.
+- 🅰️ **[Amazon Q Project Rules](references/specs/amazon_q.md)** — `.amazonq/rules/*.md` Markdown context files — **advisory only, cannot block**.
+
+### Unverified
+
+- 🔄 **[Continue CLI Specification](references/specs/continue.md)** — no official hooks documentation could be located on 2026-07-26; the file records the URLs checked and claims nothing.
 
 ---
 
-## 6. Extending `captain-hook` (Modular Architecture)
+## 6. Extending the Reference Dispatcher
 
-`captain-hook` features a pluggable Python architecture designed for easy extension:
+`scripts/captain_hook.py` is a single ~120-line standalone script with no
+dependencies and no plugin system. You extend it by editing it. That is
+deliberate: a hook script must start fast and must not fail on a missing import.
 
-### Creating a Custom Security Policy
-To add a project-specific security guard:
+### Adding a secret pattern
 
-```python
-from captain_hook import BasePolicy, HookPayload, PolicyResult, CanonicalEvent
-
-class CustomOrgPolicy(BasePolicy):
-    name = "custom_org_policy"
-    events_handled = [CanonicalEvent.PRE_PROMPT]
-
-    def evaluate(self, event: str, payload: HookPayload) -> PolicyResult:
-        if "INTERNAL_SECRET" in payload.prompt:
-            return PolicyResult(allowed=False, exit_code=2, message="Blocked: Internal token leak")
-        return PolicyResult(allowed=True, exit_code=0)
-
-# Register with engine
-from captain_hook import Engine
-engine = Engine()
-engine.register_policy(CustomOrgPolicy())
-```
-
-### Adding a New Agent Adapter
-To support a new AI coding agent:
+Append a `(compiled_regex, label)` tuple to `SECRET_PATTERNS`:
 
 ```python
-from captain_hook.adapters import BaseAgentAdapter
-
-class NewAgentAdapter(BaseAgentAdapter):
-    name = "new_agent"
-    config_relpath = ".newagent/hooks.json"
-
-    def generate_config_content(self) -> dict:
-        return {"hooks": {"pre_tool": "captain-hook dispatch PreWrite"}}
-
-engine.register_adapter(NewAgentAdapter())
+SECRET_PATTERNS = [
+    # ... existing entries ...
+    (re.compile(r"(?i)\backme_tok_[0-9a-f]{32}\b"), "Acme Internal Token"),
+]
 ```
+
+`SECRET_PATTERNS` is the single source of truth; the copies in
+`references/guards.md`, `references/security_rules.md`, and
+`references/recipes.md` are generated from it. After editing the list, run
+`python3 scripts/sync_patterns.py`. The verification suite runs
+`sync_patterns.py --check` and fails if you skip that step.
+
+### Adding a blocked command
+
+Append a `(compiled_regex, label)` tuple to `BLOCKED_COMMANDS` — the label is
+what the block message and the Antigravity deny reason say:
+
+```python
+BLOCKED_COMMANDS = [
+    # ... existing entries ...
+    (re.compile(r"\bkubectl\s+delete\s+ns\b"), "namespace deletion"),
+]
+```
+
+### Adding a whole guard
+
+Guards are sequential blocks inside `dispatch_event()`. Add yours in the same
+shape — inspect the extracted fields, write a reason to `stderr`, `return 2`:
+
+```python
+    # ... inside dispatch_event(), after the existing guards ...
+    # 5. Protected-path guard
+    if path and "/infra/prod/" in path:
+        sys.stderr.write(f"captain-hook: Blocked: '{path}' is a protected production path\n")
+        return 2
+```
+
+Order matters: guards run top to bottom and the first `return 2` wins.
+
+### Supporting a new agent
+
+There is no adapter registry. Two things are needed:
+
+1. If the agent's payload uses field names not already handled, add them to the
+   relevant `or`-chain in `extract_fields()`. Each chain covers every agent's
+   spelling of one concept — do not remove existing entries.
+2. Add a config template under `examples/` and a spec under `references/specs/`.
+
+### The extension you cannot make this way
+
+The dispatcher's native signal is its exit code. Agents that decide via a JSON
+object on `stdout` need `--decision-json`, which covers Antigravity's
+`{"decision": ...}` contract and nothing else. An agent with a differently
+shaped output protocol needs its own emitter, not another flag on this one.

@@ -14,11 +14,15 @@ Interceptors prompts or file edits containing API keys, AWS credentials, or SSH 
 import sys, json, re
 
 SECRET_PATTERNS = [
+    # BEGIN:SECRET_PATTERNS
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AWS Access Key"),
     (re.compile(r"(?i)ghp_[0-9a-zA-Z]{36}"), "GitHub Personal Access Token"),
-    (re.compile(r"(?i)sk-[a-zA-Z0-9]{48}"), "OpenAI API Key"),
-    (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
+    (re.compile(r"(?i)gho_[0-9a-zA-Z]{36}"), "GitHub OAuth Access Token"),
+    (re.compile(r"(?i)glpat-[0-9a-zA-Z\-]{20}"), "GitLab Personal Access Token"),
     (re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----"), "Private Key"),
+    (re.compile(r"(?i)\bsk-(?:(?:proj|svcacct|admin)-[a-zA-Z0-9_\-]{40,}|(?!ant-)[a-zA-Z0-9]{32,})"), "OpenAI API Key"),
+    (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
+    # END:SECRET_PATTERNS
 ]
 
 def main():
@@ -53,13 +57,17 @@ if __name__ == "__main__":
 
 ---
 
-## Recipe 2: Command Sandbox Guard (Bash)
+## Recipe 2: Dangerous Command Denylist (Bash)
 
-Prevents dangerous or destructive terminal commands (`rm -rf`, `git push --force`, `dd`, `chmod 777`).
+Blocks a fixed list of dangerous terminal commands (`rm -rf`, force push, `dd`, `chmod 777`).
+
+This is a denylist over a command string, not a containment boundary — ordinary
+shell syntax gets past it. See the **Known limits** table in
+[`guards.md`](guards.md) before relying on it.
 
 ```bash
 #!/usr/bin/env bash
-# Command Sandbox Hook Script for AI Coding Agents
+# Dangerous Command Denylist Hook Script for AI Coding Agents
 
 PAYLOAD=$(cat)
 
@@ -68,7 +76,8 @@ CMD=$(echo "$PAYLOAD" | python3 -c "
 import sys, json
 data = json.load(sys.stdin) if sys.stdin else {}
 tool_in = data.get('tool_input', {}) if isinstance(data.get('tool_input'), dict) else {}
-cmd = data.get('command') or data.get('command_string') or tool_in.get('command') or ''
+tool_info = data.get('tool_info', {}) if isinstance(data.get('tool_info'), dict) else {}
+cmd = data.get('command') or tool_in.get('command') or tool_info.get('command_line') or data.get('command_string') or ''
 print(cmd)
 ")
 
@@ -91,12 +100,33 @@ exit 0
 
 ## Recipe 3: Symlink Guard (Python)
 
-Prevents the agent from writing to or modifying files through symlinks pointing outside the repository.
+Prevents the agent from writing to paths that resolve outside the repository, including through symlinked parent directories.
 
 ```python
 #!/usr/bin/env python3
-"""Symlink Write Guard for AI Coding Agents."""
+"""Path-Escape Write Guard for AI Coding Agents."""
 import sys, json, os
+
+def repo_root():
+    """Nearest ancestor containing .git, else the cwd. No subprocess."""
+    current = os.path.abspath(os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return os.path.abspath(os.getcwd())
+        current = parent
+
+def escapes_repo(path, root):
+    # realpath resolves every component, including parents, and works on paths
+    # that do not exist yet — that is what catches a NEW file written through
+    # a symlinked directory.
+    resolved = os.path.realpath(os.path.abspath(path))
+    if resolved == root:
+        return False, resolved
+    # startswith(root + os.sep) avoids the /repo vs /repo-backup prefix bug.
+    return not resolved.startswith(root + os.sep), resolved
 
 def main():
     stdin_data = sys.stdin.read()
@@ -105,23 +135,30 @@ def main():
 
     payload = json.loads(stdin_data)
     tool_in = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    tool_info = payload.get("tool_info") if isinstance(payload.get("tool_info"), dict) else {}
     path = (
         payload.get("path")
         or payload.get("filepath")
         or payload.get("file_path")
         or tool_in.get("file_path")
+        or tool_info.get("file_path")
         or ""
     )
 
-    if path and os.path.exists(path) and os.path.islink(path):
-        sys.stderr.write(f"Blocked by captain-hook: Target file '{path}' is a symlink pointing outside repository boundaries!\n")
-        sys.exit(2)
+    if path:
+        escapes, resolved = escapes_repo(path, os.path.realpath(repo_root()))
+        if escapes:
+            sys.stderr.write(f"Blocked by captain-hook: '{path}' resolves to '{resolved}', outside the repository root!\n")
+            sys.exit(2)
 
     sys.exit(0)
 
 if __name__ == "__main__":
     main()
 ```
+
+A symlink that stays inside the repository is allowed — being a link is not by
+itself a violation. POSIX only; Windows junctions are not handled.
 
 ---
 
@@ -133,6 +170,7 @@ Automatically runs `prettier` or `eslint` after code writes.
 #!/usr/bin/env node
 // Auto-Formatter Post-Hook for Node.js
 const fs = require('fs');
+const path = require('path');
 const { execSync } = require('child_process');
 
 let rawData = '';
@@ -146,7 +184,14 @@ process.stdin.on('end', () => {
 
     if (filePath && fs.existsSync(filePath)) {
       if (filePath.match(/\.(js|ts|jsx|tsx|json)$/)) {
-        execSync(`npx prettier --write "${filePath}"`, { stdio: 'ignore' });
+        // Resolve the local binary; never the npm auto-install runner, which
+        // downloads an unpinned package from the registry when prettier is
+        // not installed. The timeout keeps a hung formatter from stalling
+        // the agent's tool call.
+        const local = path.join(process.cwd(), 'node_modules', '.bin', 'prettier');
+        if (fs.existsSync(local)) {
+          execSync(`"${local}" --write "${filePath}"`, { stdio: 'ignore', timeout: 10000 });
+        }
       }
     }
   } catch (err) {

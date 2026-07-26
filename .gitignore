@@ -3,3 +3,104 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 node_modules/
+
+# --- added by gitignore-architect (2026-07-26) ---
+
+# OS
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+
+# Secrets / credentials — NEVER commit
+.env
+.env.*
+*.env
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+client_secret*.json
+*credentials*.json
+token.json
+*token*.json
+*_id_ed25519
+*_id_ed25519.pub
+
+# Python
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Node
+*.tsbuildinfo
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.yarn/cache/
+
+# Claude Code / assistant state
+.remember/
+.claude/settings.local.json
+.claude/*.lock
+.claude/scheduled_tasks.lock
+.claude/monday_sync.json
+.claude/worktrees/
+.worktrees/
+.superpowers/
+.agent/
+.codex/
+.gemini/
+
+# Cursor (keep graphify rule trackable)
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/graphify.mdc
+
+# graphify knowledge-graph output
+graphify-out/
+**/graphify-out/
+
+# Local execution plans (not shipped with the plugin)
+plans/
+
+# The payload fixtures are the suite's inputs, and the credentials in them are
+# deliberately fake. `*token*.json` above matches one of them, which is how
+# cursor_beforeSubmitPrompt_gitlab_token.json stayed untracked while the suite
+# passed for whoever had it on disk and failed for everyone else. Negate the
+# secrets rules here rather than renaming fixtures around them: the next
+# fixture holding a fake token should not depend on someone noticing.
+!skills/captain-hook/examples/payloads/*.json
