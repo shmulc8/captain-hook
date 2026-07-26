@@ -168,6 +168,31 @@ run_containment_tests() {
 }
 run_containment_tests
 
+# The two halves of the containment check must measure from the same origin.
+# The root comes from the payload; a relative path must too. When the host
+# launches the hook from a directory other than the agent's, resolving the
+# path against the PROCESS cwd either lets `../x` read as in-repo (escape) or
+# reports an ordinary in-repo file as escaping (false block).
+run_relative_path_tests() {
+  local tmp
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+  mkdir -p "$tmp/repo/.git" "$tmp/repo/sub" "$tmp/repo/src" "$tmp/elsewhere"
+
+  printf '{"cwd":"%s","tool_name":"Write","tool_input":{"file_path":"../evil.txt"}}' \
+    "$tmp/repo" > "$tmp/p_rel_escape.json"
+  printf '{"cwd":"%s","tool_name":"Write","tool_input":{"file_path":"src/app.py"}}' \
+    "$tmp/repo" > "$tmp/p_rel_inrepo.json"
+
+  # Hook launched BELOW the agent's cwd: `../evil.txt` is outside the repo.
+  run_test "Relative escape, hook run from a subdir (Block)" \
+    "$tmp/p_rel_escape.json" "PreToolUse" 2 "$tmp/repo/sub"
+  # Hook launched OUTSIDE the repo: `src/app.py` is an ordinary in-repo write.
+  run_test "Relative in-repo path, hook run outside (Allow)" \
+    "$tmp/p_rel_inrepo.json" "PreToolUse" 0 "$tmp/elsewhere"
+}
+run_relative_path_tests
+
 echo -n "  Testing [Repo root of '/' does not blanket-block] ... "
 if python3 -c '
 import sys

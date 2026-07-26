@@ -89,6 +89,10 @@ Enforced during `PreWrite`, `PreRead`, `beforeReadFile`, `pre_read_code`, `pre_w
   working directory, and the wrong root both blocks in-repo paths and looks for
   `.captain-hook.json` in the wrong place. Falls back to that directory outside
   a repo.
+* A **relative** path in the payload is measured from the working directory the
+  payload carries — the agent's, not the hook process's. The host chooses where
+  to launch the hook; measuring the root from one directory and the path from
+  another is how `../x` reads as in-repo while the agent writes it outside.
 
 ### Known limitation:
 * Windows junctions and reparse points are **not** handled. `realpath` resolves them inconsistently across Python versions, so treat this guard as POSIX-only.

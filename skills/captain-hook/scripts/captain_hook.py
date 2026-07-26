@@ -149,17 +149,27 @@ def _repo_root(start: str | None = None) -> str:
         current = parent
 
 
-def escapes_repo(path: str, root: str | None = None) -> tuple[bool, str]:
+def escapes_repo(path: str, root: str | None = None, base: str | None = None) -> tuple[bool, str]:
     """Does `path` resolve outside the repository root?
 
     Resolves symlinks in every path component, including parent directories
     and including paths that do not exist yet, so a write to a new file
     through a symlinked directory is caught.
 
+    `base` is the directory a RELATIVE path is measured from. It must be the
+    working directory the payload carried, not the hook process's own: the
+    host is not guaranteed to launch the hook from the agent's directory
+    (README-INSTALL.md), and resolving the two halves of this check from
+    different origins lets `../x` read as in-repo while the agent writes it
+    outside — or blocks an ordinary in-repo write when the hook runs from
+    elsewhere.
+
     Returns (escapes, resolved_path).
     """
     root = os.path.realpath(root or _repo_root())
-    resolved = os.path.realpath(os.path.abspath(path))
+    if not os.path.isabs(path):
+        path = os.path.join(base or root, path)
+    resolved = os.path.realpath(path)
     if resolved == root:
         return False, resolved
     # os.path.join, not root + os.sep: a root of "/" would otherwise build the
@@ -331,12 +341,20 @@ def _glob_re(pattern: str) -> re.Pattern:
     return re.compile("".join(out) + r"\Z")
 
 
-def _matches_any(path: str, patterns: list, root: str | None = None) -> bool:
-    """Match a path against glob patterns, relative to the repo root."""
+def _matches_any(path: str, patterns: list, root: str | None = None, base: str | None = None) -> bool:
+    """Match a path against glob patterns, relative to the repo root.
+
+    Relative paths measure from `base` — the payload's working directory — for
+    the same reason escapes_repo does: an override written against the repo
+    layout must not silently stop matching because the host launched the hook
+    from a different directory.
+    """
     if not path or not patterns:
         return False
     root = root or _repo_root()
-    abs_path = os.path.realpath(os.path.abspath(path))
+    if not os.path.isabs(path):
+        path = os.path.join(base or root, path)
+    abs_path = os.path.realpath(path)
     try:
         rel = os.path.relpath(abs_path, root)
     except ValueError:
@@ -434,20 +452,23 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
     # as their working directory (README-INSTALL.md), and deriving the root
     # from the wrong cwd both blocks in-repo paths and loses the overrides.
     root = _repo_root(cwd or None)
+    # Relative paths in the payload are the agent's, measured from ITS working
+    # directory — not this process's, which the host chooses freely.
+    base = os.path.realpath(cwd) if cwd else root
 
     # Overrides are loaded once, above the blocking/post split, so the advisory
     # post-event scan honors them too — otherwise an allowlisted fixture still
     # warns on every save, which is the noise this exists to remove.
     config = load_config(root)
 
-    if _matches_any(path, config["ignore_paths"], root):
+    if _matches_any(path, config["ignore_paths"], root, base):
         sys.stderr.write(
             f"captain-hook: Note: all guards skipped for '{path}' by "
             f"{CONFIG_FILENAME} (ignore_paths)\n"
         )
         return 0
 
-    scan_secrets = not _matches_any(path, config["allow_secrets_in"], root)
+    scan_secrets = not _matches_any(path, config["allow_secrets_in"], root, base)
     allowed_commands = config["allow_commands"]
     post_exit = 0
 
@@ -488,7 +509,7 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
 
         # 3. Symlink / Path-Escape Guard
         if path:
-            escapes, resolved = escapes_repo(path, root)
+            escapes, resolved = escapes_repo(path, root, base)
             if escapes:
                 return _block(
                     f"'{path}' resolves to '{resolved}', outside the repository root"
@@ -516,7 +537,7 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
         event_name in POST_WRITE_EVENTS
         and path
         and os.path.exists(path)
-        and not escapes_repo(path, root)[0]
+        and not escapes_repo(path, root, base)[0]
     ):
         start = os.path.dirname(os.path.abspath(path))
         if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
