@@ -78,6 +78,12 @@ run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmit
 run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
 run_test "Prose containing 'ask-' (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_clean_prose.json" "beforeSubmitPrompt" 0
 run_test "Kebab-case sk- identifier (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_kebab_case.json" "beforeSubmitPrompt" 0
+run_test "rm with split flags (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_split_flags.json" "beforeShellExecution" 2
+run_test "Force push with lease (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_force_with_lease.json" "beforeShellExecution" 0
+# Documents a KNOWN GAP: variable expansion is not detected. If this ever
+# starts returning 2, the denylist got stronger — update guards.md's limits
+# table rather than deleting this case.
+run_test "rm through a variable — KNOWN GAP (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_var.json" "beforeShellExecution" 0
 run_test "Key in written content, post event (Allow+warn)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PostToolUse" 0
 run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PreToolUse" 2
 run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2

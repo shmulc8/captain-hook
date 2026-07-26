@@ -25,12 +25,22 @@ SECRET_PATTERNS = [
     (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
 ]
 
+# A regex denylist over a command string — NOT a sandbox. It does not parse
+# shell syntax, so variable expansion, command substitution, and relative
+# targets get through by design. It stops the accident, not an adversary; the
+# upgrade path is a container or restricted shell, not more regexes. Read the
+# "Known limits" table in references/guards.md before adding a pattern here.
 BLOCKED_COMMANDS = [
-    re.compile(r"\brm\s+-[rRf]{1,2}\s+[/~*]"),
-    re.compile(r"\b(mkfs|dd\s+if=)\b"),
-    re.compile(r"\bgit\s+push\s+.*--force\b"),
-    re.compile(r"\bchmod\s+-R\s+777\b"),
-    re.compile(r"\bchown\s+-R\s+root\b"),
+    # rm with recursive+force in any flag arrangement, targeting a root-ish path.
+    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rR]\w*\s+(-\w+\s+)*-\w*f\w*\s+['\"]?[/~*]"),
+     "recursive force delete of a root path"),
+    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rRf]{2}\w*\s+['\"]?[/~*]"),
+     "recursive force delete of a root path"),
+    (re.compile(r"\b(mkfs|dd\s+if=)\b"), "raw disk write or filesystem format"),
+    # --force-with-lease is the safe form; blocking it pushes people to --force.
+    (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "force push"),
+    (re.compile(r"\bchmod\s+-R\s+777\b"), "recursive world-writable permissions"),
+    (re.compile(r"\bchown\s+-R\s+root\b"), "recursive ownership change to root"),
 ]
 
 
@@ -209,11 +219,11 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                     sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
                     return 2
 
-        # 2. Command Sandboxing
+        # 2. Dangerous Command Denylist
         if command:
-            for pattern in BLOCKED_COMMANDS:
+            for pattern, label in BLOCKED_COMMANDS:
                 if pattern.search(command):
-                    sys.stderr.write(f"captain-hook: Blocked: Dangerous shell command pattern matched ({pattern.pattern})\n")
+                    sys.stderr.write(f"captain-hook: Blocked: {label}\n")
                     return 2
 
         # 3. Symlink / Path-Escape Guard

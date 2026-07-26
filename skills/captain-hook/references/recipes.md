@@ -57,13 +57,17 @@ if __name__ == "__main__":
 
 ---
 
-## Recipe 2: Command Sandbox Guard (Bash)
+## Recipe 2: Dangerous Command Denylist (Bash)
 
-Prevents dangerous or destructive terminal commands (`rm -rf`, `git push --force`, `dd`, `chmod 777`).
+Blocks a fixed list of dangerous terminal commands (`rm -rf`, force push, `dd`, `chmod 777`).
+
+This is a denylist over a command string, not a containment boundary — ordinary
+shell syntax gets past it. See the **Known limits** table in
+[`guards.md`](guards.md) before relying on it.
 
 ```bash
 #!/usr/bin/env bash
-# Command Sandbox Hook Script for AI Coding Agents
+# Dangerous Command Denylist Hook Script for AI Coding Agents
 
 PAYLOAD=$(cat)
 

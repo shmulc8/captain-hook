@@ -238,7 +238,7 @@ test-cmd: "pytest"
 ## 3. Ready-to-Use Hook Recipes
 
 Read the reference guides for full copy-pasteable script implementations:
-- [`references/recipes.md`](references/recipes.md) — 5 complete hook scripts (Secret Scanner, Command Sandbox, Symlink Guard, Auto-Formatter, Test Gate).
+- [`references/recipes.md`](references/recipes.md) — 5 complete hook scripts (Secret Scanner, Dangerous Command Denylist, Path-Escape Guard, Auto-Formatter, Test Gate).
 - [`references/how_to_write_cursor_hooks.md`](references/how_to_write_cursor_hooks.md) — Cursor hook tutorial.
 - [`references/how_to_write_windsurf_hooks.md`](references/how_to_write_windsurf_hooks.md) — Windsurf hook tutorial.
 - [`references/how_to_write_claude_hooks.md`](references/how_to_write_claude_hooks.md) — Claude Code hook tutorial.
@@ -251,7 +251,7 @@ Read the reference guides for full copy-pasteable script implementations:
 
 - 🧪 **Automated Verification Suite (`scripts/verify_hooks.sh`)**: Runs the bundled reference dispatcher against sample `stdin` payloads and lints the shipped documentation and config templates for schema drift. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly (see [`references/debugging.md`](references/debugging.md)).
 - 📂 **Sample Payloads (`examples/payloads/`)**: Real-world JSON stdin payload files for testing `beforeShellExecution`, `PreToolUse`, and `pre_write_code`.
-- 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, command sandboxing, symlink guard, MCP governance).
+- 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, dangerous-command denylist, path-escape guard, MCP governance).
 - 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.
 - 🚀 **[CI/CD Integration Guide](references/ci_cd_integration.md)** — Integrating hook verification into `.git/hooks/pre-commit` and GitHub Actions workflows.
 - 📦 **[Invocation & Install Guide](README-INSTALL.md)** — there is no `captain-hook` binary; `<CAPTAIN_HOOK>` in the shipped templates stands for `python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py`.

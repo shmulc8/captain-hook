@@ -27,7 +27,7 @@ Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, th
 
 ---
 
-## 2. Command Sandbox Guard (`command_sandbox`)
+## 2. Dangerous Command Denylist (`command_denylist`)
 
 Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToolUse`.
 
@@ -40,6 +40,29 @@ Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToo
 * `git push --force`
 * `chmod -R 777`
 * `chown -R root`
+
+### Known limits — read before relying on this
+
+This is a **regex denylist over a command string**, not a sandbox. It does not
+parse shell syntax, so it is bypassed by ordinary constructs:
+
+| Command | Blocked? |
+| :--- | :---: |
+| `rm -rf /` | yes |
+| `rm -r -f /` | yes (split flags, since the v1.1 tightening) |
+| `rm -rf "/"` | yes (quoted target, same change) |
+| `rm -rf $HOME` | no — variable expansion |
+| `cd / && rm -rf .` | no — relative target |
+| `$(echo rm) -rf /` | no — command substitution |
+
+It stops the accident — a model emitting a literal destructive command — which
+is the common case and worth stopping. It does not stop an adversary, and it is
+not a containment boundary.
+
+For an actual guarantee, put the agent somewhere it cannot do the damage:
+a container or VM, a non-privileged user, a repository checkout with no
+credentials, and branch protection on the remote. A hook is a seatbelt, not
+a roll cage.
 
 ---
 

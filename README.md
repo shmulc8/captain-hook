@@ -12,7 +12,7 @@
 
 ## ⛵ Navigating the High Seas of AI Agent Hooks
 
-- **The Pain Point**: Lifecycle hooks are a captain's most powerful weapon for deterministic security guardrails, command sandboxing, and quality gates in AI coding. However, unlike open skill standards, **every AI coding agent uses completely different, constantly changing hook specifications**, configuration schemas, JSON payload shapes, and exit code semantics.
+- **The Pain Point**: Lifecycle hooks are a captain's most powerful weapon for deterministic security guardrails, dangerous-command denylisting, and quality gates in AI coding. However, unlike open skill standards, **every AI coding agent uses completely different, constantly changing hook specifications**, configuration schemas, JSON payload shapes, and exit code semantics.
 - **The Solution**: `captain-hook` chart-maps all this fragmented information into one unified handbook, scaffolding library, and verification suite—saving developers and AI agents from drifting lost in the open sea of documentation for each individual agent.
 
 ---
@@ -44,7 +44,7 @@ cd captain-hook
 
 - 📚 **Handbook & Guide (`SKILL.md`)**: Complete instructions on hook fundamentals, event lifecycles, stdin/stdout JSON contracts, and exit code blocking protocols (`0` ALLOW, `2` BLOCK).
 - 🧭 **Exhaustive 10-Agent Specifications (`references/specs/`)**: Self-contained, live-verified specification guides cross-referenced with official documentation.
-- 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Command Sandboxing, Symlink Guards, Auto-Formatting, and Test Gates.
+- 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Dangerous Command Denylisting, Path-Escape Guards, Auto-Formatting, and Test Gates.
 - 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `.agents/hooks.json`.
 - 🛠️ **Local Verification Suite (`scripts/verify_hooks.sh`)**: Test runner script that pipes sample JSON payloads to `stdin` to test your hook scripts locally before deploying.
 
