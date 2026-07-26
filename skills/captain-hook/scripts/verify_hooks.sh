@@ -78,6 +78,10 @@ run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmit
 run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
 run_test "Prose containing 'ask-' (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_clean_prose.json" "beforeSubmitPrompt" 0
 run_test "Kebab-case sk- identifier (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_kebab_case.json" "beforeSubmitPrompt" 0
+run_test "Key in written content, post event (Allow+warn)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PostToolUse" 0
+run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PreToolUse" 2
+run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2
+run_test "Force push on a post event (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "post_run_command" 0
 run_symlink_tests
 
 echo ""

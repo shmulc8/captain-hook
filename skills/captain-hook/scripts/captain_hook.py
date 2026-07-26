@@ -117,6 +117,44 @@ def escapes_repo(path: str, root: str | None = None) -> tuple[bool, str]:
     return not resolved.startswith(root + os.sep), resolved
 
 
+# Every event that fires AFTER the action it describes. Returning 2 at any of
+# these produces a "Blocked" message for something that was not blocked.
+POST_EVENTS = frozenset({
+    # canonical
+    "PostWrite", "PostCommand", "PostMCP", "SessionEnd",
+    # Cursor
+    "afterFileEdit", "stop",
+    # Windsurf
+    "post_read_code", "post_write_code", "post_run_command", "post_mcp_tool_use",
+    "post_cascade_response", "post_cascade_response_with_transcript", "post_setup_worktree",
+    # Claude Code — verified: exit 2 does not block on any of these
+    "PostToolUse", "SessionStart", "Notification",
+    # Antigravity
+    "PostInvocation",
+})
+
+# The subset the auto-formatter keys off. Must stay a subset of POST_EVENTS.
+POST_WRITE_EVENTS = frozenset({
+    "PostWrite", "afterFileEdit", "post_write_code", "PostToolUse",
+})
+
+# Events that CAN still prevent the action. Kept as documentation of what was
+# verified upstream; the runtime check below is the complement of POST_EVENTS
+# so that an unrecognized event gets guards rather than silently skipping them.
+BLOCKING_EVENTS = frozenset({
+    "PrePrompt", "PreWrite", "PreCommand", "PreMCP",
+    "beforeSubmitPrompt", "beforeShellExecution", "beforeMCPExecution", "beforeReadFile",
+    "pre_user_prompt", "pre_read_code", "pre_write_code", "pre_run_command", "pre_mcp_tool_use",
+    "UserPromptSubmit", "PreToolUse", "Stop", "SubagentStop", "PreCompact",
+    "PreInvocation",
+})
+
+
+def _is_blocking(event_name: str) -> bool:
+    """Unknown events are treated as blocking — fail safe, not silent."""
+    return event_name not in POST_EVENTS
+
+
 def dispatch_event(event_name: str, stdin_data: str) -> int:
     payload = {}
     if stdin_data.strip():
@@ -127,34 +165,46 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
 
     prompt, path, command, tool, server, args = extract_fields(payload)
 
-    # 1. Secret Scanning
-    for target in [prompt, command, stdin_data]:
-        if not target:
-            continue
+    if _is_blocking(event_name):
+        # 1. Secret Scanning — scan the fields a user controls, not the whole
+        # envelope. Scanning raw stdin swept in file contents and diffs, which
+        # made a post-write save of any key-shaped string look like an attack.
+        for target in (prompt, command, json.dumps(args, default=str) if args else ""):
+            if not target:
+                continue
+            for pattern, label in SECRET_PATTERNS:
+                if pattern.search(target):
+                    sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
+                    return 2
+
+        # 2. Command Sandboxing
+        if command:
+            for pattern in BLOCKED_COMMANDS:
+                if pattern.search(command):
+                    sys.stderr.write(f"captain-hook: Blocked: Dangerous shell command pattern matched ({pattern.pattern})\n")
+                    return 2
+
+        # 3. Symlink / Path-Escape Guard
+        if path:
+            escapes, resolved = escapes_repo(path)
+            if escapes:
+                sys.stderr.write(
+                    f"captain-hook: Blocked: '{path}' resolves to '{resolved}', "
+                    f"outside the repository root\n"
+                )
+                return 2
+    else:
+        # Post events cannot block; report and continue so the formatter runs.
         for pattern, label in SECRET_PATTERNS:
-            if pattern.search(target):
-                sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
-                return 2
-
-    # 2. Command Sandboxing
-    if command:
-        for pattern in BLOCKED_COMMANDS:
-            if pattern.search(command):
-                sys.stderr.write(f"captain-hook: Blocked: Dangerous shell command pattern matched ({pattern.pattern})\n")
-                return 2
-
-    # 3. Symlink / Path-Escape Guard
-    if path:
-        escapes, resolved = escapes_repo(path)
-        if escapes:
-            sys.stderr.write(
-                f"captain-hook: Blocked: '{path}' resolves to '{resolved}', "
-                f"outside the repository root\n"
-            )
-            return 2
+            if pattern.search(stdin_data):
+                sys.stderr.write(
+                    f"captain-hook: Warning: {label} pattern present in "
+                    f"'{path or 'payload'}' — this event cannot be blocked\n"
+                )
+                break
 
     # 4. Post-Write Auto Formatting
-    if event_name in ("PostWrite", "afterFileEdit", "post_write_code", "PostToolUse") and path and os.path.exists(path):
+    if event_name in POST_WRITE_EVENTS and path and os.path.exists(path):
         if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")) and shutil.which("npx"):
             subprocess.run(["npx", "prettier", "--write", path], capture_output=True)
         elif path.endswith(".py") and shutil.which("ruff"):

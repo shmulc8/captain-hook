@@ -8,6 +8,9 @@ This document details the built-in policy rules enforced by `captain-hook`.
 
 Enforced during `PrePrompt`, `PreCommand`, `PreToolUse`, `pre_user_prompt`.
 
+> Not enforced on post-* events: the action has already happened, so a block is
+> not possible. A secret detected there is reported as a warning instead.
+
 ### Blocked Regex Patterns:
 
 Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, then run `python3 scripts/sync_patterns.py`.
@@ -28,6 +31,9 @@ Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, th
 
 Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToolUse`.
 
+> Not enforced on post-* events: the command has already run, so a block is not
+> possible.
+
 ### Blocked Command Patterns:
 * `rm -rf /` or `rm -rf ~` or `rm -rf *`
 * `mkfs` or `dd if=`
@@ -40,6 +46,9 @@ Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToo
 ## 3. Path-Escape Guard (`symlink_guard`)
 
 Enforced during `PreWrite`, `beforeReadFile`, `pre_write_code`.
+
+> Not enforced on post-* events: the write has already happened, so a block is
+> not possible.
 
 ### Behavior:
 * Resolves the target path (and every parent component) with `os.path.realpath`, then checks it is under the repository root.
