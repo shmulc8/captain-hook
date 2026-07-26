@@ -19,10 +19,11 @@
 
 ### 1. Install as a Claude Plugin
 
-Install `captain-hook` directly into Claude Code or compatible AI agent environments:
+Install `captain-hook` directly into Claude Code or compatible AI agent environments. This repository is its own plugin marketplace, so register it first, then install:
 
 ```bash
-/plugin install shmulc8/captain-hook
+/plugin marketplace add shmulc8/captain-hook
+/plugin install captain-hook@captain-hook
 ```
 
 ### 2. Manual Clone & Local Verification
@@ -70,7 +71,8 @@ cd captain-hook
 captain-hook/
 ├── README.md                            # Project overview & hero artwork
 ├── .claude-plugin/
-│   └── plugin.json                      # Claude Plugin manifest
+│   ├── plugin.json                      # Claude Plugin manifest
+│   └── marketplace.json                 # Marketplace manifest (makes the repo installable)
 ├── assets/
 │   └── captain_hook_gauntlet.jpg        # Hero artwork
 └── skills/captain-hook/                 # 📚 Agent Skill Handbook & Specifications
