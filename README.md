@@ -46,7 +46,7 @@ cd captain-hook
 - 🧭 **10-Agent Specifications (`references/specs/`)**: each spec carries a `> Source:` line naming the upstream URL and the date it was last checked against it. The verification suite fails if one is missing.
 - 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Dangerous Command Denylisting, Path-Escape Guards, Auto-Formatting, and Test Gates.
 - 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `.agents/hooks.json`.
-- 🛠️ **Local Verification Suite (`scripts/verify_hooks.sh`)**: Test runner script that pipes sample JSON payloads to `stdin` to test your hook scripts locally before deploying.
+- 🛠️ **Local Verification Suite (`skills/captain-hook/scripts/verify_hooks.sh`)**: Runs the bundled dispatcher against the sample payloads and lints the shipped docs and templates. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly.
 
 ---
 

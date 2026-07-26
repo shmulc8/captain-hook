@@ -6,20 +6,32 @@ This guide explains how to integrate `captain-hook` verification into your Git p
 
 ## 1. Git Pre-Commit Hook Integration
 
-Add the following to `.git/hooks/pre-commit` to prevent committing invalid or unsafe code:
+A git `pre-commit` hook is the fallback gate for every agent that cannot block
+on its own — Aider, Roo Code / Cline, Copilot, Amazon Q, and Continue CLI. It
+runs the **dispatcher** against your staged changes. It does not run this
+repository's verification suite: that suite tests captain-hook itself and knows
+nothing about your code.
 
 ```bash
-#!/usr/bin/env bash
-# .git/hooks/pre-commit
-./skills/captain-hook/scripts/verify_hooks.sh
-if [ $? -ne 0 ]; then
-    echo "Pre-commit hook failed! Please resolve policy issues." >&2
-    exit 1
-fi
-```
-```bash
+cp /abs/path/to/captain-hook/skills/captain-hook/examples/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
+
+Then open `.git/hooks/pre-commit` and replace `<CAPTAIN_HOOK>` with the
+absolute invocation — see [`../README-INSTALL.md`](../README-INSTALL.md):
+
+```bash
+python3 /abs/path/to/captain-hook/skills/captain-hook/scripts/captain_hook.py
+```
+
+Use an absolute path. A hook that cannot start exits non-zero, and for a git
+hook that means **every commit is refused** until you notice.
+
+What this gate can and cannot see: it inspects the staged diff, so it catches a
+secret or an escaping path that reaches a commit. It cannot see the shell
+commands an agent ran — nothing at commit time can. For that you need an
+executable hook in the agent itself; see the roster in
+[`../SKILL.md`](../SKILL.md) section 5.
 
 ---
 
