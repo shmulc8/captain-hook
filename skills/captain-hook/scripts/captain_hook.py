@@ -650,35 +650,43 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
     # Known uncovered: no test formats a real file. Doing so would require
     # prettier or ruff on the machine, and the suite is deliberately
     # dependency-free. What IS covered: the timeout, the missing-binary path,
-    # and the node_modules walk's containment clamp — see verify_hooks.sh.
-    # The formatter rewrites the file it is pointed at, so it gets the same
-    # containment as a write: a post event naming a path outside the repository
-    # is not something this hook should be running a tool against.
-    if (
-        event_name in POST_WRITE_EVENTS
-        and path
-        and os.path.exists(path)
-        and not escapes_repo(path, root, base)[0]
-    ):
-        # Imported here, not at module level: see _run_formatter. Python caches
-        # modules after first import, so the repeated statement costs nothing
-        # on the path that does reach it.
-        import shutil
+    # the node_modules walk's containment clamp, and — via a stub binary that
+    # records its argv — the path this hands the formatter. See verify_hooks.sh.
+    if event_name in POST_WRITE_EVENTS and path:
+        # Every filesystem step below uses `resolved`, never the raw `path`.
+        # escapes_repo measures a relative path from the payload's cwd; deriving
+        # it again here with abspath() would measure it from the hook process's
+        # own, which the host does not guarantee matches (README-INSTALL.md).
+        # Split origins are worse than a wrong one: the guard would clear the
+        # in-repo file while the formatter rewrote a same-named file next to
+        # wherever the hook happened to be launched.
+        escapes, resolved = escapes_repo(path, root, base)
+        # The formatter rewrites the file it is pointed at, so it gets the same
+        # containment as a write: a post event naming a path outside the
+        # repository is not something this hook should be running a tool against.
+        if not escapes and os.path.exists(resolved):
+            # Imported here, not at module level: see _run_formatter. Python
+            # caches modules after first import, so the repeated statement costs
+            # nothing on the path that does reach it.
+            import shutil
 
-        start = os.path.dirname(os.path.abspath(path))
-        if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
-            # Resolve the prettier binary itself. Deliberately not launched via
-            # the npm auto-install runner, which fetches an unpinned package
-            # from the registry when prettier is absent — a network call and
-            # arbitrary code execution inside a security hook. See
-            # references/guards.md section 4.
-            prettier = shutil.which("prettier") or _local_node_bin("prettier", root, start)
-            if prettier:
-                _run_formatter([prettier, "--write", path], path)
-        elif path.endswith(".py"):
-            ruff = shutil.which("ruff")
-            if ruff:
-                _run_formatter([ruff, "format", path], path)
+            start = os.path.dirname(resolved)
+            # Keyed on the name the agent wrote, not on `resolved`: a symlink's
+            # target may carry a different suffix, and the write the hook is
+            # reacting to is the one the payload named.
+            if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
+                # Resolve the prettier binary itself. Deliberately not launched
+                # via the npm auto-install runner, which fetches an unpinned
+                # package from the registry when prettier is absent — a network
+                # call and arbitrary code execution inside a security hook. See
+                # references/guards.md section 4.
+                prettier = shutil.which("prettier") or _local_node_bin("prettier", root, start)
+                if prettier:
+                    _run_formatter([prettier, "--write", resolved], path)
+            elif path.endswith(".py"):
+                ruff = shutil.which("ruff")
+                if ruff:
+                    _run_formatter([ruff, "format", resolved], path)
 
     return post_exit
 

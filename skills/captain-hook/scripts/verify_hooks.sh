@@ -295,6 +295,44 @@ run_relative_path_tests() {
 }
 run_relative_path_tests
 
+# The formatter has the same two-origin hazard, and it is the half the
+# containment check above cannot catch: escapes_repo clears the file resolved
+# against the PAYLOAD's cwd, so an argv rebuilt from the bare relative path
+# sends the formatter at a same-named file next to wherever the host happened
+# to launch the hook — guard and tool acting on two different files.
+run_formatter_path_tests() {
+  local tmp want got
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
+  trap 'rm -rf "$tmp"' RETURN
+  mkdir -p "$tmp/repo/.git" "$tmp/elsewhere" "$tmp/bin"
+  printf 'x = 1\n' > "$tmp/repo/app.py"
+  # The decoy is what a bare os.path.exists("app.py") finds when the hook runs
+  # from outside the repository — and what the formatter then rewrites.
+  printf 'x = 2\n' > "$tmp/elsewhere/app.py"
+  # Stub formatter recording the path it was handed. A real ruff is not needed
+  # to check the argv, and requiring one would break the no-dependency rule.
+  printf '#!/bin/sh\nprintf "%%s\\n" "$2" >> "%s/argv.log"\n' "$tmp" > "$tmp/bin/ruff"
+  chmod +x "$tmp/bin/ruff"
+  printf '{"cwd":"%s","tool_name":"Write","tool_input":{"file_path":"app.py"}}' \
+    "$tmp/repo" > "$tmp/p_fmt.json"
+
+  echo -n "  Testing [Formatter targets the payload's cwd, not the hook's] ... "
+  ( cd "$tmp/elsewhere" && PATH="$tmp/bin:$PATH" \
+      python3 "$ROOT_DIR/scripts/captain_hook.py" dispatch PostToolUse \
+      < "$tmp/p_fmt.json" ) >/dev/null 2>&1 || true
+  # pwd -P for the same reason as run_node_bin_tests: macOS hands back /var/...
+  # for a path the dispatcher reports as /private/var/....
+  want="$(cd "$tmp/repo" && pwd -P)/app.py"
+  got="$(cat "$tmp/argv.log" 2>/dev/null || true)"
+  if [ "$got" = "$want" ]; then
+    echo "✓ PASSED"; TEST_PASSED=$((TEST_PASSED + 1))
+  else
+    echo "❌ FAILED (formatter got '${got:-<never ran>}', want '$want')"
+    TEST_FAILED=$((TEST_FAILED + 1))
+  fi
+}
+run_formatter_path_tests
+
 # The pre-commit fallback is the only enforcement path this repo offers the
 # five agents that cannot block. It used to exit 0 unconditionally: git gives
 # a commit hook no stdin and no arguments, so every extracted field was empty.

@@ -123,6 +123,11 @@ Enforced during `PostWrite`, `afterFileEdit`, `post_write_code`, `PostToolUse`.
 * Only ever runs against a path inside the repository, and the
   `node_modules/.bin` walk stops at the repository root — a stray `npm install`
   in `$HOME` must not put an executable in this hook's path.
+* The formatter is pointed at the path resolved the same way the path-escape
+  guard resolves it — from the payload's working directory (guard 3). Resolving
+  it a second time from the hook process's own would let the guard clear the
+  in-repo file while the formatter rewrote a same-named file beside wherever the
+  host launched the hook.
 * Both calls are bounded by a 10-second timeout. On timeout or failure the file
   is left unformatted and a warning is written to `stderr`; the hook never fails
   the write because of a formatter.
