@@ -1,52 +1,160 @@
-# Exhaustive Antigravity (AGY) Hooks & Guardrails Specification
+# Exhaustive Google Antigravity Hooks Specification
+
+> Source: https://antigravity.google/docs/hooks — verified 2026-07-26
 
 ## 1. Overview & Architecture
 
-Google Antigravity (AGY CLI / IDE) features a native **Write-Time Prevention Hook** system (`hooks/prevent.py`) and a report-only **CI Gate** (`--check --base <ref>`). Prevention hooks execute before `--fix` operations or file mutations to guarantee git cleanliness, line integrity, and prevent out-of-tree symlink rewrites.
+Google Antigravity executes hooks defined in a `hooks.json` file in its
+customization directory. Hooks receive a JSON payload on `stdin` and return a
+JSON object on `stdout`. **Antigravity does not use exit codes to allow or deny
+actions** — unlike Claude Code, Cursor, and Windsurf, the decision is carried in
+a `decision` field.
 
 ---
 
-## 2. Configuration & Hook Locations
+## 2. Configuration File Locations
 
-| Level | Path | Purpose |
-| :--- | :--- | :--- |
-| **Workspace (Project)** | `hooks/prevent.py` | Write-time prevention hook executed before `--fix` mutations. |
-| **Skill Level** | `skills/captain-obvious/scripts/` | Scanner engine & AST classifiers (`co_py`, `co_ts`). |
-| **CI Gate** | `action.yml` / `.pre-commit-hooks.yaml` | Syntactic check gate for pull requests. |
-
----
-
-## 3. `hooks/prevent.py` Prevention Hook Contract
-
-Antigravity executes `hooks/prevent.py` as a Python script prior to performing write-time fixes.
-
-### Execution Contract:
-- **Environment**: Python 3.9+ runtime in repository working directory.
-- **Inputs**: CLI flags (`--path`, `--fix`, `--force`).
-- **Outputs**:
-  - **Exit Code `0`**: Allow write-time fix to proceed.
-  - **Exit Code `2`**: **BLOCK / REJECT**. The fix operation is cancelled, and error text on `stderr` is presented to the agent.
+| Scope | Path |
+| :--- | :--- |
+| **Workspace** | `.agents/hooks.json` |
+| **User (Global)** | `~/.gemini/config/hooks.json` |
 
 ---
 
-## 4. Complete Implementation Example
+## 3. Configuration Schema (`hooks.json`)
 
-### `hooks/prevent.py`
+```json
+{
+  "enabled": true,
+  "PreToolUse": [
+    {
+      "matcher": "run_command",
+      "hooks": [
+        { "type": "command", "command": "python3 .agents/hooks/guard_command.py", "timeout": 30 }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "write_file|edit_file",
+      "hooks": [
+        { "type": "command", "command": "python3 .agents/hooks/log_write.py" }
+      ]
+    }
+  ],
+  "PreInvocation": [
+    { "hooks": [ { "type": "command", "command": "python3 .agents/hooks/pre_invocation.py" } ] }
+  ],
+  "PostInvocation": [
+    { "hooks": [ { "type": "command", "command": "python3 .agents/hooks/post_invocation.py" } ] }
+  ],
+  "Stop": [
+    { "hooks": [ { "type": "command", "command": "python3 .agents/hooks/on_stop.py" } ] }
+  ]
+}
+```
+
+### Schema Parameters
+- `enabled`: boolean, defaults to `true`.
+- `matcher`: regex over tool names (`"run_command"`, `"browser_.*"`, `"*"`). Applies to
+  `PreToolUse` and `PostToolUse` only.
+- `type`: must be `"command"` — the only handler type currently supported.
+- `command`: shell command string.
+- `timeout`: seconds, default `30`.
+
+---
+
+## 4. Lifecycle Events
+
+| Event | Trigger |
+| :--- | :--- |
+| `PreToolUse` | before a tool runs |
+| `PostToolUse` | after a tool completes |
+| `PreInvocation` | before the model is called |
+| `PostInvocation` | after tool calls finish |
+| `Stop` | when execution terminates |
+
+---
+
+## 5. stdin Payload
+
+JSON with **camelCase** field names — not the `snake_case` used by Windsurf or
+the mixed shapes used by Cursor. Common metadata is present on every event:
+
+| Field | Meaning |
+| :--- | :--- |
+| `conversationId` | Identifier for the conversation |
+| `workspacePaths` | Workspace roots |
+| `transcriptPath` | Path to the conversation transcript |
+| `artifactDirectoryPath` | Path to the artifact directory |
+
+Event-specific fields are also camelCase — for example `toolCall` on
+`PreToolUse` / `PostToolUse`, `stepIdx` and `invocationNum` on the invocation
+events, and `terminationReason` on `Stop`.
+
+---
+
+## 6. Decision Contract (stdout JSON, not exit codes)
+
+- `PreToolUse` — output **must** include `decision`, one of:
+
+  | Value | Effect |
+  | :--- | :--- |
+  | `"allow"` | Allows the tool execution |
+  | `"deny"` | Hard blocks execution immediately |
+  | `"ask"` | Prompts the user, respecting "Always Allow" settings |
+  | `"force_ask"` | Always prompts, ignoring cached permissions |
+
+  Optional `reason` explains the decision; optional `permissionOverrides` adjusts
+  permissions for the call.
+- `PostToolUse`, `PreInvocation`, `PostInvocation` — return `{}` or inject steps.
+- `Stop` — `{"decision": "continue"}` prevents termination and re-enters the
+  execution loop; any other value allows the stop to proceed.
+
+There is no exit-code-2 contract. A guard that signals by exiting with a
+non-zero status will not block anything in Antigravity.
+
+**Capability gap in this repository**: the bundled dispatcher
+(`scripts/captain_hook.py`) signals allow/deny purely through its exit code, so
+it **cannot deny anything on Antigravity**. It is usable there for logging and
+formatting only. Closing this needs a stdout-JSON output mode, which does not
+exist yet.
+
+---
+
+## 7. Implementation Example
+
+### `.agents/hooks.json`
+```json
+{
+  "enabled": true,
+  "PreToolUse": [
+    {
+      "matcher": "run_command",
+      "hooks": [
+        { "type": "command", "command": "python3 .agents/hooks/guard_command.py", "timeout": 30 }
+      ]
+    }
+  ]
+}
+```
+
+### `.agents/hooks/guard_command.py`
 ```python
 #!/usr/bin/env python3
-"""Antigravity Write-Time Prevention Hook."""
-import sys, subprocess, os
+"""Antigravity PreToolUse guard: denies dangerous shell commands via stdout JSON."""
+import json
+import sys
 
-# 1. Require clean working tree before allowing --fix
-proc = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-if proc.stdout.strip():
-    sys.stderr.write("captain-obvious: uncommitted changes present — commit or stash before running --fix\n")
-    sys.exit(2)
+payload = json.load(sys.stdin)
+tool_call = payload.get("toolCall", {}) or {}
+command = tool_call.get("command", "") or ""
 
-# 2. Refuse writes if git is absent
-if not subprocess.run(["git", "--version"], capture_output=True).returncode == 0:
-    sys.stderr.write("captain-obvious: git command unavailable — refusal to rewrite without undo path\n")
-    sys.exit(2)
-
-sys.exit(0)
+if "rm -rf /" in command or "--force" in command:
+    print(json.dumps({"decision": "deny", "reason": f"Blocked by policy: {command}"}))
+else:
+    print(json.dumps({"decision": "allow"}))
 ```
+
+Note the shape: the script exits `0` in both branches and carries its verdict in
+the printed JSON. A non-zero exit here would let the command through.

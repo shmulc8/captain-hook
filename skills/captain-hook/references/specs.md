@@ -117,9 +117,10 @@ This document provides exact, authoritative specifications for all supported AI 
 
 ## 5. Antigravity (AGY)
 
-- **Config Path**: `hooks/prevent.py` (Workspace)
-- **Execution**: Python script executed prior to file mutations or `--fix`.
-- **Blocking Contract**: Exit Code **2** or throwing an exception blocks the rewrite.
+- **Config Path**: `.agents/hooks.json` (Workspace) or `~/.gemini/config/hooks.json` (User)
+- **Supported Events**: `PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, `Stop`. `matcher` (a regex over tool names) applies to the two tool events.
+- **Payload (`stdin`) Field Names**: camelCase, with `conversationId`, `workspacePaths`, `transcriptPath`, and `artifactDirectoryPath` on every event.
+- **Blocking Contract**: **no exit-code contract**. Hooks print a JSON object on `stdout`; `PreToolUse` must carry `decision` (`"allow"` / `"deny"` / `"ask"` / `"force_ask"`), and `Stop` uses `{"decision": "continue"}` to prevent termination.
 
 ---
 

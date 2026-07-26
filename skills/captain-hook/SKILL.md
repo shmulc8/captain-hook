@@ -181,22 +181,39 @@ sys.exit(0)
 
 ---
 
-### ⚡ D. Antigravity AGY (`hooks/prevent.py`)
+### ⚡ D. Antigravity (`.agents/hooks.json`)
 
-Antigravity executes `hooks/prevent.py` prior to applying `--fix` or file mutations.
+Antigravity reads `hooks.json` from its customization directory — `.agents/` in the workspace, or `~/.gemini/config/` globally.
 
+Antigravity is the exception to the exit-code pattern used by the agents above — it reads a `decision` field from stdout. A hook that exits `2` blocks nothing here.
+
+#### Step 1: Create `.agents/hooks.json`
+```json
+{
+  "enabled": true,
+  "PreToolUse": [
+    {
+      "matcher": "run_command",
+      "hooks": [
+        { "type": "command", "command": "python3 .agents/hooks/guard_command.py", "timeout": 30 }
+      ]
+    }
+  ]
+}
+```
+
+#### Step 2: Write the PreToolUse Guard (`.agents/hooks/guard_command.py`)
 ```python
 #!/usr/bin/env python3
-"""Antigravity write-time prevention hook."""
-import sys, subprocess
+import json, sys
 
-# Ensure git working tree is clean before allowing auto-fix
-res = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-if res.stdout.strip():
-    sys.stderr.write("captain-obvious: uncommitted changes present — commit or stash before running --fix\n")
-    sys.exit(2)
+payload = json.load(sys.stdin)
+cmd = payload.get("toolCall", {}).get("command", "")
 
-sys.exit(0)
+if "--force" in cmd:
+    print(json.dumps({"decision": "deny", "reason": "force push is blocked by policy"}))
+else:
+    print(json.dumps({"decision": "allow"}))
 ```
 
 ---
@@ -245,7 +262,7 @@ Read the reference guides for full copy-pasteable script implementations:
 - 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), and event lifecycle.
 - 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, Exit Code 2 cancellation, and `pre_*`/`post_*` events.
 - 🤖 **[Claude Code Specification](references/specs/claude_code.md)** — `.claude/settings.json` schema, `PreToolUse`/`PostToolUse`, and native tool payload shapes.
-- ⚡ **[Antigravity AGY Specification](references/specs/antigravity.md)** — `hooks/prevent.py` write-time hook and `--check` CI gates.
+- ⚡ **[Antigravity Specification](references/specs/antigravity.md)** — `.agents/hooks.json` schema, camelCase payloads, and the stdout `decision` contract (no exit codes).
 - 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml` schema, `auto-lint`, `lint-cmd`, and closed-loop feedback.
 - 🔄 **[Continue CLI Specification](references/specs/continue.md)** — `~/.continue/settings.json` schema and 17 CLI event hooks.
 - 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules`, `.roomodes`, and custom mode tools.

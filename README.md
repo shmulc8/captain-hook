@@ -43,7 +43,7 @@ cd captain-hook
 - 📚 **Handbook & Guide (`SKILL.md`)**: Complete instructions on hook fundamentals, event lifecycles, stdin/stdout JSON contracts, and exit code blocking protocols (`0` ALLOW, `2` BLOCK).
 - 🧭 **Exhaustive 10-Agent Specifications (`references/specs/`)**: Self-contained, live-verified specification guides cross-referenced with official documentation.
 - 🗡️ **Production Hook Recipes (`references/recipes.md`)**: Copy-pasteable standalone Python, Bash, and Node.js hook scripts for Secret Scanning, Command Sandboxing, Symlink Guards, Auto-Formatting, and Test Gates.
-- 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `hooks/prevent.py`.
+- 📄 **Scaffolding Templates (`examples/`)**: Valid starter configuration files for `.cursor/hooks.json`, `.windsurf/hooks.json`, `.claude/settings.json`, `.aider.conf.yml`, and `.agents/hooks.json`.
 - 🛠️ **Local Verification Suite (`scripts/verify_hooks.sh`)**: Test runner script that pipes sample JSON payloads to `stdin` to test your hook scripts locally before deploying.
 
 ---
@@ -55,7 +55,7 @@ cd captain-hook
 | **Cursor AI** | `.cursor/hooks.json` | [Cursor Hooks Spec](skills/captain-hook/references/specs/cursor.md) |
 | **Windsurf (Cascade)** | `.windsurf/hooks.json` | [Windsurf Hooks Spec](skills/captain-hook/references/specs/windsurf.md) |
 | **Claude Code** | `.claude/settings.json` | [Claude Code Hooks Spec](skills/captain-hook/references/specs/claude_code.md) |
-| **Antigravity (AGY)** | `hooks/prevent.py` | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
+| **Antigravity (AGY)** | `.agents/hooks.json` | [Antigravity Spec](skills/captain-hook/references/specs/antigravity.md) |
 | **Aider AI** | `.aider.conf.yml` | [Aider Hooks Spec](skills/captain-hook/references/specs/aider.md) |
 | **Continue CLI (`cn`)** | `~/.continue/settings.json` | [Continue CLI Spec](skills/captain-hook/references/specs/continue.md) |
 | **Roo Code / Cline** | `.clinerules` | [Roo Code Spec](skills/captain-hook/references/specs/roo_cline.md) |

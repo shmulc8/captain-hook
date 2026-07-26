@@ -8,14 +8,14 @@ This document maps canonical lifecycle events to vendor-native **Executable Hook
 
 | Canonical Event | Cursor AI | Windsurf (Cascade) | Claude Code | Antigravity (AGY) | Continue CLI (`cn`) | Aider AI | Git Hooks |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | Prompt Interceptor | `UserPromptSubmit` | Pre-Chat Hook | Pre-commit |
-| **`PreWrite`** | `beforeReadFile` | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `hooks/prevent.py` | `PreToolUse` | `auto-lint` pre-pass | Pre-commit |
-| **`PostWrite`** | `afterFileEdit` | `post_write_code` | `PostToolUse` (`Edit`/`Write`) | Post-fix Hook | `PostToolUse` | `lint-cmd` | Post-commit |
-| **`PreCommand`** | `beforeShellExecution` | `pre_run_command` | `PreToolUse` (`Bash`) | Command Guard | `PreToolUse` | Pre-exec Hook | Pre-commit |
-| **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | Command Listener | `PostToolUse` | Post-exec Hook | Post-commit |
-| **`PreMCP`** | `beforeMCPExecution` | `pre_mcp_tool_use` | `PreToolUse` (MCP) | MCP Proxy Hook | `PreToolUse` | MCP Proxy Hook | N/A |
-| **`PostMCP`** | N/A | `post_mcp_tool_use` | `PostToolUse` (MCP) | MCP Proxy Hook | `PostToolUse` | MCP Proxy Hook | N/A |
-| **`SessionEnd`** | `stop` | `post_cascade_response` | `Stop` / `SessionEnd` | Turn End Hook | `TaskCompleted` | `test-cmd` | Post-commit |
+| **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | `PreInvocation` | `UserPromptSubmit` | Pre-Chat Hook | Pre-commit |
+| **`PreWrite`** | `beforeReadFile` | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `PreToolUse` (matcher `write_file\|edit_file`) | `PreToolUse` | `auto-lint` pre-pass | Pre-commit |
+| **`PostWrite`** | `afterFileEdit` | `post_write_code` | `PostToolUse` (`Edit`/`Write`) | `PostToolUse` (matcher `write_file\|edit_file`) | `PostToolUse` | `lint-cmd` | Post-commit |
+| **`PreCommand`** | `beforeShellExecution` | `pre_run_command` | `PreToolUse` (`Bash`) | `PreToolUse` (matcher `run_command`) | `PreToolUse` | Pre-exec Hook | Pre-commit |
+| **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | `PostToolUse` (matcher `run_command`) | `PostToolUse` | Post-exec Hook | Post-commit |
+| **`PreMCP`** | `beforeMCPExecution` | `pre_mcp_tool_use` | `PreToolUse` (MCP) | `PreToolUse` (MCP matcher) | `PreToolUse` | MCP Proxy Hook | N/A |
+| **`PostMCP`** | N/A | `post_mcp_tool_use` | `PostToolUse` (MCP) | `PostToolUse` (MCP matcher) | `PostToolUse` | MCP Proxy Hook | N/A |
+| **`SessionEnd`** | `stop` | `post_cascade_response` | `Stop` / `SessionEnd` | `Stop` | `TaskCompleted` | `test-cmd` | Post-commit |
 
 ---
 
