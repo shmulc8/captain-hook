@@ -205,6 +205,42 @@ def check_spec_provenance() -> list[str]:
     return failures
 
 
+# The five agents README promotes as able to block an action must each have a
+# committed payload in their own shape, plus a case that runs it. Antigravity
+# had neither, so nothing noticed that the dispatcher could not read a single
+# one of its fields — the suite was green and one of the five advertised agents
+# was guarded by nothing. A roster entry without evidence is a claim.
+BLOCKING_AGENT_FIXTURES = {
+    "claude": "Claude Code",
+    "cursor": "Cursor",
+    "windsurf": "Windsurf",
+    "openhands": "OpenHands",
+    "antigravity": "Antigravity",
+}
+PAYLOADS_DIR = EXAMPLES_DIR / "payloads"
+
+
+def check_blocking_agent_fixtures() -> list[str]:
+    """Every agent in the blocking roster has a fixture and a suite case."""
+    names = [p.name for p in PAYLOADS_DIR.glob("*.json")]
+    suite = read(SKILL_DIR / "scripts" / "verify_hooks.sh")
+    failures = []
+    for prefix, agent in sorted(BLOCKING_AGENT_FIXTURES.items()):
+        matching = [n for n in names if n.startswith(prefix + "_")]
+        if not matching:
+            failures.append(
+                f"examples/payloads/: no fixture for {agent} — every agent in the "
+                f"blocking roster needs one in its own payload shape"
+            )
+            continue
+        if not any(n in suite for n in matching):
+            failures.append(
+                f"examples/payloads/: {agent} has fixtures ({', '.join(sorted(matching))}) "
+                f"but verify_hooks.sh runs none of them"
+            )
+    return failures
+
+
 # The roster split — who can block, who is advisory — is the question this
 # skill exists to answer, and the frontmatter description is what decides
 # whether it activates at all. It named eight of ten agents while the body
@@ -341,6 +377,7 @@ CHECKS = [
     ("CI guide reproduces the workflow", check_ci_guide_matches_workflow),
     ("Aider template keys are real", check_aider_template_keys),
     ("SKILL.md description names every agent", check_skill_description),
+    ("Every blocking agent has a payload fixture", check_blocking_agent_fixtures),
 ]
 
 

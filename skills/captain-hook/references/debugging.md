@@ -42,6 +42,24 @@ python3 skills/captain-hook/scripts/verify_docs.py
 
 ---
 
+## 2b. Payload fixtures
+
+`examples/payloads/` holds one JSON payload per agent, event and case, named
+`<agent>_<event>_<case>.json`. They are the inputs the verification suite pipes
+into the dispatcher, and the ones to pipe into your own hook scripts when
+testing them (section 1).
+
+Every agent that can block — Claude Code, Cursor, Windsurf, OpenHands,
+Antigravity — must have at least one fixture in its own payload shape, and the
+suite must run it. `verify_docs.py` enforces both. The reason is specific:
+Antigravity shipped in the blocking roster with no fixture, so nothing caught
+that the dispatcher could not read any of its fields.
+
+Every fixture's shape comes from that agent's file in `references/specs/`. If
+you cannot point at the spec section a field came from, do not add the fixture.
+
+---
+
 ## 3. Inspecting Agent Output Logs
 
 - **Cursor AI**: Open `Ctrl+Shift+P` ➔ "Output: Show Output Channels" ➔ Select **"Hooks"**.
