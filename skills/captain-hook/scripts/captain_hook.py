@@ -157,6 +157,8 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
     cwd = (
         payload.get("cwd")
         or payload.get("workspace_root")
+        # OpenHands (specs/openhands_devin.md section 4).
+        or payload.get("working_dir")
         or tool_info.get("cwd")
         or _first_str(payload.get("workspacePaths"))
         or ""
@@ -235,6 +237,10 @@ POST_EVENTS = frozenset({
     "PostToolUse", "SessionStart", "Notification",
     # Antigravity
     "PostInvocation",
+    # OpenHands — the config file spells these snake_case (specs/openhands_devin.md
+    # section 3). Without them an unrecognised `post_tool_use` took the blocking
+    # branch and could print "Blocked:" on an event that cannot block.
+    "post_tool_use", "session_start", "session_end",
 })
 
 # The subset the auto-formatter keys off. Must stay a subset of POST_EVENTS.
@@ -257,6 +263,8 @@ BLOCKING_EVENTS = frozenset({
     "pre_user_prompt", "pre_read_code", "pre_write_code", "pre_run_command", "pre_mcp_tool_use",
     "UserPromptSubmit", "PreToolUse", "Stop", "SubagentStop", "PreCompact",
     "PreInvocation",
+    # OpenHands snake_case config keys (specs/openhands_devin.md section 3).
+    "pre_tool_use", "user_prompt_submit",
     # git's own contract: any non-zero exit from a pre-commit hook aborts the
     # commit. This is the fallback gate for the five agents that cannot block.
     "PreCommit",

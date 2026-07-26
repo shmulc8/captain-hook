@@ -140,6 +140,10 @@ run_test "Windsurf tool_info Clean (Allow)" "$ROOT_DIR/examples/payloads/windsur
 # one agent that has no exit-code contract to make the failure visible.
 run_test "Antigravity toolCall force push (Block)" "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_run_command.json" "PreCommand" 2
 run_test "Antigravity toolCall clean (Allow)"      "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_clean.json"       "PreCommand" 0
+# OpenHands is in the blocking roster; its snake_case config keys must reach the
+# same guards as every other agent's, and its post events must not pretend to block.
+run_test "OpenHands pre_tool_use denylist (Block)" "$ROOT_DIR/examples/payloads/openhands_pre_tool_use_bash.json" "pre_tool_use"  2
+run_test "OpenHands post_tool_use cannot block (Allow)" "$ROOT_DIR/examples/payloads/openhands_pre_tool_use_bash.json" "post_tool_use" 0
 run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_gitlab_token.json" "beforeSubmitPrompt" 2
 run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
 # Real sk-proj- keys carry hyphens inside the body. A pattern that only accepts

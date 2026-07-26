@@ -41,14 +41,24 @@ Event keys are `snake_case` in the config file, mapping to matcher groups whose
 
 ## 3. Lifecycle Events
 
-| Event | Fires | Can block? |
-| :--- | :--- | :---: |
-| `PreToolUse` | before tool execution | yes |
-| `PostToolUse` | after tool execution | no |
-| `UserPromptSubmit` | before processing a user message | yes |
-| `Stop` | when the agent attempts to finish | yes |
-| `SessionStart` | conversation begins | no |
-| `SessionEnd` | conversation ends | no |
+| Event | Config key | Fires | Can block? |
+| :--- | :--- | :--- | :---: |
+| `PreToolUse` | `pre_tool_use` | before tool execution | yes |
+| `PostToolUse` | `post_tool_use` | after tool execution | no |
+| `UserPromptSubmit` | `user_prompt_submit` | before processing a user message | yes |
+| `Stop` | `stop` | when the agent attempts to finish | yes |
+| `SessionStart` | `session_start` | conversation begins | no |
+| `SessionEnd` | `session_end` | conversation ends | no |
+
+> The config file uses the `snake_case` column; the upstream documentation
+> names the events in the first column. The bundled dispatcher accepts either
+> spelling, so `dispatch post_tool_use` and `dispatch PostToolUse` behave
+> identically — including the part that matters, which is that neither can
+> block.
+>
+> `pre_tool_use` and `post_tool_use` are attested in the config example above;
+> the other four config keys apply the documented `snake_case` convention to
+> the documented event names and have not been observed in a live session.
 
 ---
 
@@ -78,7 +88,15 @@ observational.
 
 ---
 
-## 6. Corrections made 2026-07-26
+## 6. Shipped template
+
+`examples/openhands_hooks.json` wires the three events captain-hook guards.
+Copy it to `.openhands/hooks.json` and replace `<CAPTAIN_HOOK>` with the
+absolute invocation — see [`../../README-INSTALL.md`](../../README-INSTALL.md).
+
+---
+
+## 7. Corrections made 2026-07-26
 
 This file previously described "Action Interceptors" registered as Python
 middleware on an event stream, configured through `config.toml`, blocking via
