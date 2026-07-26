@@ -58,6 +58,10 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
     )
     command = (
         payload.get("command")
+        # Flat spelling from third-party templates. Not documented by any spec
+        # verified so far, but five specs are still unverified (Plan 009), so
+        # this stays as a defensive fallback rather than being deleted.
+        or payload.get("command_string")
         or payload.get("cmd")
         or tool_input.get("command")
         or tool_info.get("command_line")

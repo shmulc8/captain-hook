@@ -69,7 +69,7 @@ import sys, json
 data = json.load(sys.stdin) if sys.stdin else {}
 tool_in = data.get('tool_input', {}) if isinstance(data.get('tool_input'), dict) else {}
 tool_info = data.get('tool_info', {}) if isinstance(data.get('tool_info'), dict) else {}
-cmd = data.get('command') or tool_in.get('command') or tool_info.get('command_line') or ''
+cmd = data.get('command') or tool_in.get('command') or tool_info.get('command_line') or data.get('command_string') or ''
 print(cmd)
 ")
 
