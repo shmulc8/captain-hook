@@ -114,11 +114,14 @@ events, and `terminationReason` on `Stop`.
 There is no exit-code-2 contract. A guard that signals by exiting with a
 non-zero status will not block anything in Antigravity.
 
-**Capability gap in this repository**: the bundled dispatcher
-(`scripts/captain_hook.py`) signals allow/deny purely through its exit code, so
-it **cannot deny anything on Antigravity**. It is usable there for logging and
-formatting only. Closing this needs a stdout-JSON output mode, which does not
-exist yet.
+**How this repository handles it**: the bundled dispatcher
+(`scripts/captain_hook.py`) signals allow/deny through its exit code by
+default, which blocks nothing here. Pass `--decision-json` and it also writes
+the decision object this contract requires to stdout — `{"decision": "deny",
+"reason": "<the guard that fired>"}` on a block, `{"decision": "allow"}`
+otherwise, `{}` on post events. `examples/antigravity_hooks.json` uses the flag
+on `PreToolUse`. Without it, an Antigravity hook runs the guards and then
+allows the action regardless of what they found.
 
 ---
 

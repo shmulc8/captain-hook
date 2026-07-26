@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import fnmatch
+import functools
 import json
 import os
 import re
@@ -22,7 +22,12 @@ SECRET_PATTERNS = [
     (re.compile(r"(?i)gho_[0-9a-zA-Z]{36}"), "GitHub OAuth Access Token"),
     (re.compile(r"(?i)glpat-[0-9a-zA-Z\-]{20}"), "GitLab Personal Access Token"),
     (re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----"), "Private Key"),
-    (re.compile(r"(?i)\bsk-(?!ant-)(proj-|svcacct-|admin-)?[a-zA-Z0-9_]{20,}[a-zA-Z0-9_\-]{12,}"), "OpenAI API Key"),
+    # Two shapes in one pattern: a prefixed project/service key, whose body may
+    # contain hyphens, or a legacy key, which is an unbroken alphanumeric run.
+    # The hyphen has to be allowed for `sk-proj-` (real keys carry them) but
+    # only after a known prefix — allowing it everywhere matches any kebab-case
+    # identifier that happens to start with `sk-`.
+    (re.compile(r"(?i)\bsk-(?:(?:proj|svcacct|admin)-[a-zA-Z0-9_\-]{40,}|(?!ant-)[a-zA-Z0-9]{32,})"), "OpenAI API Key"),
     (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
 ]
 
@@ -32,11 +37,11 @@ SECRET_PATTERNS = [
 # upgrade path is a container or restricted shell, not more regexes. Read the
 # "Known limits" table in references/guards.md before adding a pattern here.
 BLOCKED_COMMANDS = [
-    # rm with recursive+force in any flag arrangement, targeting a root-ish path.
-    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rR]\w*\s+(-\w+\s+)*-\w*f\w*\s+['\"]?[/~*]"),
-     "recursive force delete of a root path"),
-    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rRf]{2}\w*\s+['\"]?[/~*]"),
-     "recursive force delete of a root path"),
+    # rm carrying -r, -R, or -f in any flag arrangement, targeting a root-ish
+    # path. One destructive flag is enough: `rm -f ~/.ssh/id_rsa` and
+    # `rm -r /` each destroy something irreplaceable without the pair.
+    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rRf]\w*\s+(-\w+\s+)*['\"]?[/~*]"),
+     "recursive or forced delete of a root path"),
     (re.compile(r"\b(mkfs|dd\s+if=)\b"), "raw disk write or filesystem format"),
     # --force-with-lease is the safe form; blocking it pushes people to --force.
     (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "force push"),
@@ -45,7 +50,25 @@ BLOCKED_COMMANDS = [
 ]
 
 
-def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
+def _as_str(value) -> str:
+    """Coerce a payload field to text the guards can actually match.
+
+    A non-string where a string was expected used to reach `re.search` and
+    raise; an unhandled exception exits 1, which blocks nowhere, so the guard
+    failed open on exactly the malformed payload it should distrust. An
+    argv-shaped list is joined rather than discarded — `["git", "push",
+    "--force"]` is a command line, and the denylist should see it as one.
+    """
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return " ".join(_as_str(item) for item in value)
+    return json.dumps(value, default=str)
+
+
+def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict, str]:
     tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
     # Windsurf/Cascade nests every per-event field under tool_info.
     tool_info = payload.get("tool_info") if isinstance(payload.get("tool_info"), dict) else {}
@@ -92,8 +115,19 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
         or ""
     )
     args = payload.get("args") or payload.get("arguments") or tool_input or tool_info or {}
+    # The host's working directory is not reliably the repository (see
+    # README-INSTALL.md), so prefer the one the payload carries.
+    cwd = payload.get("cwd") or payload.get("workspace_root") or tool_info.get("cwd") or ""
 
-    return prompt, path, command, tool, server, args
+    return (
+        _as_str(prompt),
+        _as_str(path),
+        _as_str(command),
+        _as_str(tool),
+        _as_str(server),
+        args,  # any JSON type; only ever json.dumps'd, never pattern-matched raw
+        _as_str(cwd),
+    )
 
 
 def _repo_root(start: str | None = None) -> str:
@@ -102,13 +136,16 @@ def _repo_root(start: str | None = None) -> str:
     Walks up rather than shelling out to git: this runs on every hook
     invocation and must not spawn a subprocess.
     """
-    current = os.path.abspath(start or os.getcwd())
+    # realpath, not abspath: every path the guards compare against this one is
+    # resolved, and on macOS a temp dir alone is enough to make the two spell
+    # the same directory differently (/var vs /private/var).
+    current = os.path.realpath(start or os.getcwd())
     while True:
         if os.path.exists(os.path.join(current, ".git")):
             return current
         parent = os.path.dirname(current)
         if parent == current:
-            return os.path.abspath(start or os.getcwd())
+            return os.path.realpath(start or os.getcwd())
         current = parent
 
 
@@ -125,7 +162,10 @@ def escapes_repo(path: str, root: str | None = None) -> tuple[bool, str]:
     resolved = os.path.realpath(os.path.abspath(path))
     if resolved == root:
         return False, resolved
-    return not resolved.startswith(root + os.sep), resolved
+    # os.path.join, not root + os.sep: a root of "/" would otherwise build the
+    # prefix "//", which no path starts with, and every read and write in the
+    # repository would be reported as escaping it.
+    return not resolved.startswith(os.path.join(root, "")), resolved
 
 
 # Every event that fires AFTER the action it describes. Returning 2 at any of
@@ -149,11 +189,17 @@ POST_WRITE_EVENTS = frozenset({
     "PostWrite", "afterFileEdit", "post_write_code", "PostToolUse",
 })
 
+# Post events where exit 2 is the only channel that reaches the model. Claude
+# Code shows a hook's stderr to Claude on exit 2 and swallows it on exit 0
+# (specs/claude_code.md section 5), so reporting a secret with 0 tells nobody.
+# Nothing is blocked either way — the write already landed.
+POST_EVENTS_STDERR_TO_MODEL = frozenset({"PostToolUse"})
+
 # Events that CAN still prevent the action. Kept as documentation of what was
 # verified upstream; the runtime check below is the complement of POST_EVENTS
 # so that an unrecognized event gets guards rather than silently skipping them.
 BLOCKING_EVENTS = frozenset({
-    "PrePrompt", "PreWrite", "PreCommand", "PreMCP",
+    "PrePrompt", "PreRead", "PreWrite", "PreCommand", "PreMCP",
     "beforeSubmitPrompt", "beforeShellExecution", "beforeMCPExecution", "beforeReadFile",
     "pre_user_prompt", "pre_read_code", "pre_write_code", "pre_run_command", "pre_mcp_tool_use",
     "UserPromptSubmit", "PreToolUse", "Stop", "SubagentStop", "PreCompact",
@@ -164,6 +210,32 @@ BLOCKING_EVENTS = frozenset({
 def _is_blocking(event_name: str) -> bool:
     """Unknown events are treated as blocking — fail safe, not silent."""
     return event_name not in POST_EVENTS
+
+
+# The reason for the most recent block, so `--decision-json` can repeat it to
+# an agent that reads stdout instead of exit codes.
+_LAST_BLOCK_REASON = ""
+
+
+def _block(reason: str) -> int:
+    global _LAST_BLOCK_REASON
+    _LAST_BLOCK_REASON = reason
+    sys.stderr.write(f"captain-hook: Blocked: {reason}\n")
+    return 2
+
+
+def _decision_json(event_name: str, exit_code: int) -> str:
+    """Antigravity's allow/deny contract is stdout JSON, not an exit code.
+
+    See specs/antigravity.md section 6: a `PreToolUse` hook's output must carry
+    a `decision`, and a non-zero exit status blocks nothing there. Post events
+    take `{}`.
+    """
+    if event_name in POST_EVENTS:
+        return "{}"
+    if exit_code == 2:
+        return json.dumps({"decision": "deny", "reason": _LAST_BLOCK_REASON})
+    return json.dumps({"decision": "allow"})
 
 
 CONFIG_FILENAME = ".captain-hook.json"
@@ -178,17 +250,40 @@ CONFIG_FILENAME = ".captain-hook.json"
 # override that nobody can see is the thing this design exists to avoid.
 
 
+CONFIG_LIST_KEYS = ("ignore_paths", "allow_secrets_in", "allow_commands")
+
+
+def _config_list(data: dict, key: str) -> list[str]:
+    """Read one override key, rejecting anything that is not a list of strings.
+
+    Type-checking the top-level object alone is not enough: a string value
+    (`"ignore_paths": "vendor/**"`, the common hand-edit slip) is iterable, so
+    every guard would then be tested against its individual *characters* —
+    including `*`, which matches everything. A wrong type must be as inert as a
+    missing key, and must say so.
+    """
+    value = data.get(key, [])
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str)]
+    sys.stderr.write(
+        f"captain-hook: Warning: {CONFIG_FILENAME} key '{key}' must be a list of strings, "
+        f"got {type(value).__name__} — ignored, guards stay on\n"
+    )
+    return []
+
+
 def load_config(root: str | None = None) -> dict:
     """Load .captain-hook.json from the repository root.
 
     A missing file means no overrides. A malformed file is reported and
     treated as empty — an unreadable config must never silently disable the
-    guards.
+    guards. Returns every known key normalized to a list of strings.
     """
     root = root or _repo_root()
     path = os.path.join(root, CONFIG_FILENAME)
+    empty = {key: [] for key in CONFIG_LIST_KEYS}
     if not os.path.isfile(path):
-        return {}
+        return empty
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
@@ -197,34 +292,75 @@ def load_config(root: str | None = None) -> dict:
             f"captain-hook: Warning: could not read {CONFIG_FILENAME} ({exc}) "
             f"— continuing with all guards enabled\n"
         )
-        return {}
-    return data if isinstance(data, dict) else {}
+        return empty
+    if not isinstance(data, dict):
+        sys.stderr.write(
+            f"captain-hook: Warning: {CONFIG_FILENAME} must be a JSON object, got "
+            f"{type(data).__name__} — continuing with all guards enabled\n"
+        )
+        return empty
+    return {key: _config_list(data, key) for key in CONFIG_LIST_KEYS}
 
 
-def _matches_any(path: str, patterns: list) -> bool:
+@functools.lru_cache(maxsize=None)
+def _glob_re(pattern: str) -> re.Pattern:
+    """Compile a glob in which `*` does NOT cross a path separator.
+
+    `fnmatch`'s `*` matches `/` too, so `tests/fixtures/*.json` would also
+    exempt `tests/fixtures/deep/prod.json` — an override that reads as one
+    directory silently covering a whole subtree. `**` still crosses, as in
+    .gitignore, so a deliberate subtree exemption is still one character away.
+    """
+    out = []
+    i = 0
+    while i < len(pattern):
+        char = pattern[i]
+        if char == "*":
+            if pattern[i + 1:i + 2] == "*":
+                out.append(".*")
+                i += 2
+                if pattern[i:i + 1] == "/":
+                    i += 1  # `**/x` also matches `x` at the top level
+                continue
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        else:
+            out.append(re.escape(char))
+        i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def _matches_any(path: str, patterns: list, root: str | None = None) -> bool:
     """Match a path against glob patterns, relative to the repo root."""
     if not path or not patterns:
         return False
-    root = _repo_root()
+    root = root or _repo_root()
     abs_path = os.path.realpath(os.path.abspath(path))
     try:
         rel = os.path.relpath(abs_path, root)
     except ValueError:
         rel = abs_path
     return any(
-        fnmatch.fnmatch(rel, p) or fnmatch.fnmatch(abs_path, p)
+        _glob_re(p).match(rel) or _glob_re(p).match(abs_path)
         for p in patterns
         if isinstance(p, str)
     )
 
 
-def _command_allowed(command: str, patterns: list) -> str | None:
-    """Return the allow_commands pattern exempting `command`, if any."""
+def _command_allowed(command: str, patterns: list, span: tuple[int, int]) -> str | None:
+    """Return the allow_commands pattern covering `span`, if any.
+
+    Containment, not a bare search anywhere in the line: an entry allowing a
+    release script's force push must not also exempt the `rm -rf ~/` chained
+    after it. The exemption applies to the text the denylist actually matched.
+    """
+    start, end = span
     for raw in patterns:
         if not isinstance(raw, str):
             continue
         try:
-            if re.search(raw, command):
+            if any(m.start() <= start and m.end() >= end for m in re.finditer(raw, command)):
                 return raw
         except re.error as exc:
             sys.stderr.write(
@@ -240,13 +376,24 @@ def _command_allowed(command: str, patterns: list) -> str | None:
 FORMAT_TIMEOUT_SECONDS = 10
 
 
-def _local_node_bin(name: str) -> str | None:
-    """Find a project-local node_modules/.bin entry by walking up from cwd."""
-    current = os.path.abspath(os.getcwd())
+def _local_node_bin(name: str, root: str, start: str) -> str | None:
+    """Find a project-local node_modules/.bin entry, never leaving the repo.
+
+    The walk stops at the repository root on purpose. Continuing to `/` would
+    execute whatever `node_modules/.bin/prettier` happens to sit in an ancestor
+    directory — a stray `npm install` in $HOME is enough — which is the
+    arbitrary-code-execution-in-a-hook problem that `npx` was dropped to avoid.
+    """
+    root = os.path.realpath(root)
+    current = os.path.realpath(os.path.abspath(start))
+    if not current.startswith(os.path.join(root, "")) and current != root:
+        current = root
     while True:
         candidate = os.path.join(current, "node_modules", ".bin", name)
         if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
             return candidate
+        if current == root:
+            return None
         parent = os.path.dirname(current)
         if parent == current:
             return None
@@ -266,30 +413,43 @@ def _run_formatter(argv: list[str], path: str) -> None:
         sys.stderr.write(f"captain-hook: Warning: formatter failed on '{path}': {exc}\n")
 
 
-def dispatch_event(event_name: str, stdin_data: str) -> int:
+def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | None = None) -> int:
     payload = {}
     if stdin_data.strip():
         try:
             payload = json.loads(stdin_data)
         except json.JSONDecodeError:
             payload = {"raw": stdin_data}
+    if not isinstance(payload, dict):
+        payload = {"raw": stdin_data}
 
-    prompt, path, command, tool, server, args = extract_fields(payload)
+    prompt, path, command, tool, server, args, cwd = extract_fields(payload)
+    # aider's lint-cmd passes the edited files as arguments and sends no JSON
+    # on stdin, so argv is the only place the path appears (specs/aider.md).
+    if not path and argv_paths:
+        path = argv_paths[0]
+
+    # Every guard measures against one repository root, taken from the payload
+    # when the host provides it: hooks do not reliably run with the repository
+    # as their working directory (README-INSTALL.md), and deriving the root
+    # from the wrong cwd both blocks in-repo paths and loses the overrides.
+    root = _repo_root(cwd or None)
 
     # Overrides are loaded once, above the blocking/post split, so the advisory
     # post-event scan honors them too — otherwise an allowlisted fixture still
     # warns on every save, which is the noise this exists to remove.
-    config = load_config()
+    config = load_config(root)
 
-    if _matches_any(path, config.get("ignore_paths", [])):
+    if _matches_any(path, config["ignore_paths"], root):
         sys.stderr.write(
             f"captain-hook: Note: all guards skipped for '{path}' by "
             f"{CONFIG_FILENAME} (ignore_paths)\n"
         )
         return 0
 
-    scan_secrets = not _matches_any(path, config.get("allow_secrets_in", []))
-    allowed_commands = config.get("allow_commands", []) or []
+    scan_secrets = not _matches_any(path, config["allow_secrets_in"], root)
+    allowed_commands = config["allow_commands"]
+    post_exit = 0
 
     if _is_blocking(event_name):
         # 1. Secret Scanning — scan the fields a user controls, not the whole
@@ -306,32 +466,33 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                             f"{CONFIG_FILENAME} (allow_secrets_in)\n"
                         )
                         break
-                    sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
-                    return 2
+                    return _block(f"Secret key pattern detected ({label})")
 
         # 2. Dangerous Command Denylist
         if command:
             for pattern, label in BLOCKED_COMMANDS:
-                if pattern.search(command):
-                    allowed_by = _command_allowed(command, allowed_commands)
+                hit = pattern.search(command)
+                if hit:
+                    allowed_by = _command_allowed(command, allowed_commands, hit.span())
                     if allowed_by:
                         sys.stderr.write(
                             f"captain-hook: Note: {label} allowed by "
                             f"{CONFIG_FILENAME} (allow_commands: {allowed_by})\n"
                         )
-                        break
-                    sys.stderr.write(f"captain-hook: Blocked: {label}\n")
-                    return 2
+                        # continue, not break: an allowlist entry exempts the
+                        # pattern it matched, not the rest of the denylist.
+                        # `git push --force && rm -rf ~/` must still be blocked
+                        # by a rule allowing only the force push.
+                        continue
+                    return _block(label)
 
         # 3. Symlink / Path-Escape Guard
         if path:
-            escapes, resolved = escapes_repo(path)
+            escapes, resolved = escapes_repo(path, root)
             if escapes:
-                sys.stderr.write(
-                    f"captain-hook: Blocked: '{path}' resolves to '{resolved}', "
-                    f"outside the repository root\n"
+                return _block(
+                    f"'{path}' resolves to '{resolved}', outside the repository root"
                 )
-                return 2
     elif scan_secrets:
         # Post events cannot block; report and continue so the formatter runs.
         for pattern, label in SECRET_PATTERNS:
@@ -340,20 +501,31 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                     f"captain-hook: Warning: {label} pattern present in "
                     f"'{path or 'payload'}' — this event cannot be blocked\n"
                 )
+                if event_name in POST_EVENTS_STDERR_TO_MODEL:
+                    post_exit = 2
                 break
 
     # 4. Post-Write Auto Formatting — locally installed tools only.
     # Known uncovered: no test actually formats a file. Doing so would require
     # prettier or ruff on the machine, and the suite is deliberately
     # dependency-free. The timeout and the missing-binary path are tested.
-    if event_name in POST_WRITE_EVENTS and path and os.path.exists(path):
+    # The formatter rewrites the file it is pointed at, so it gets the same
+    # containment as a write: a post event naming a path outside the repository
+    # is not something this hook should be running a tool against.
+    if (
+        event_name in POST_WRITE_EVENTS
+        and path
+        and os.path.exists(path)
+        and not escapes_repo(path, root)[0]
+    ):
+        start = os.path.dirname(os.path.abspath(path))
         if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
             # Resolve the prettier binary itself. Deliberately not launched via
             # the npm auto-install runner, which fetches an unpinned package
             # from the registry when prettier is absent — a network call and
             # arbitrary code execution inside a security hook. See
             # references/guards.md section 4.
-            prettier = shutil.which("prettier") or _local_node_bin("prettier")
+            prettier = shutil.which("prettier") or _local_node_bin("prettier", root, start)
             if prettier:
                 _run_formatter([prettier, "--write", path], path)
         elif path.endswith(".py"):
@@ -361,7 +533,7 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
             if ruff:
                 _run_formatter([ruff, "format", path], path)
 
-    return 0
+    return post_exit
 
 
 def main():
@@ -370,12 +542,26 @@ def main():
 
     dispatch_parser = subparsers.add_parser("dispatch", help="Dispatch a hook event.")
     dispatch_parser.add_argument("event", help="Canonical or agent event name")
+    # aider appends the edited filenames to lint-cmd (specs/aider.md). Rejecting
+    # them made argparse exit 2 before any guard ran, which aider reports back to
+    # the model as a lint failure on a file that is fine.
+    dispatch_parser.add_argument(
+        "paths", nargs="*", help="Optional file paths appended by the host (aider lint-cmd)"
+    )
+    dispatch_parser.add_argument(
+        "--decision-json",
+        action="store_true",
+        help="Also print an allow/deny decision object on stdout (Antigravity).",
+    )
 
     args = parser.parse_args()
 
     if args.subcommand == "dispatch":
         stdin_data = sys.stdin.read() if not sys.stdin.isatty() else ""
-        sys.exit(dispatch_event(args.event, stdin_data))
+        code = dispatch_event(args.event, stdin_data, args.paths)
+        if args.decision_json:
+            sys.stdout.write(_decision_json(args.event, code) + "\n")
+        sys.exit(code)
     else:
         parser.print_help()
         sys.exit(1)

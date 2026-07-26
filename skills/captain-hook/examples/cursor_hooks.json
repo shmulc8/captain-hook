@@ -18,7 +18,7 @@
     ],
     "beforeReadFile": [
       {
-        "command": "<CAPTAIN_HOOK> dispatch PreWrite"
+        "command": "<CAPTAIN_HOOK> dispatch PreRead"
       }
     ],
     "afterFileEdit": [

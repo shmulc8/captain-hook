@@ -188,7 +188,7 @@ sys.exit(0)
 
 Antigravity reads `hooks.json` from its customization directory — `.agents/` in the workspace, or `~/.gemini/config/` globally.
 
-Antigravity is the exception to the exit-code pattern used by the agents above — it reads a `decision` field from stdout. A hook that exits `2` blocks nothing here.
+Antigravity is the exception to the exit-code pattern used by the agents above — it reads a `decision` field from stdout. A hook that exits `2` blocks nothing here, so the dispatcher is wired with `--decision-json`, which makes it print `{"decision": "deny", "reason": "..."}` alongside the exit code. Drop the flag and the guards still run, but nothing they find can stop the action.
 
 #### Step 1: Create `.agents/hooks.json`
 ```json
@@ -309,12 +309,13 @@ SECRET_PATTERNS = [
 
 ### Adding a blocked command
 
-Append a compiled regex to `BLOCKED_COMMANDS`:
+Append a `(compiled_regex, label)` tuple to `BLOCKED_COMMANDS` — the label is
+what the block message and the Antigravity deny reason say:
 
 ```python
 BLOCKED_COMMANDS = [
     # ... existing entries ...
-    re.compile(r"\bkubectl\s+delete\s+ns\b"),
+    (re.compile(r"\bkubectl\s+delete\s+ns\b"), "namespace deletion"),
 ]
 ```
 
@@ -344,7 +345,7 @@ There is no adapter registry. Two things are needed:
 
 ### The extension you cannot make this way
 
-The dispatcher signals allow/deny purely through its exit code. Agents that
-decide via a JSON object on `stdout` (Google Antigravity) cannot be blocked by
-it at all. Supporting them requires an output-protocol mode, which does not
-exist yet.
+The dispatcher's native signal is its exit code. Agents that decide via a JSON
+object on `stdout` need `--decision-json`, which covers Antigravity's
+`{"decision": ...}` contract and nothing else. An agent with a differently
+shaped output protocol needs its own emitter, not another flag on this one.

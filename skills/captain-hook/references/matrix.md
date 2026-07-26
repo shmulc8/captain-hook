@@ -13,7 +13,8 @@ own.
 | Canonical Event | Cursor AI | Windsurf (Cascade) | Claude Code | Antigravity (AGY) | Aider AI | Git Hooks |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | `PreInvocation` | N/A | Pre-commit |
-| **`PreWrite`** | `beforeReadFile` | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `PreToolUse` (matcher `write_file` / `edit_file`) | N/A | Pre-commit |
+| **`PreRead`** | `beforeReadFile` | `pre_read_code` | `PreToolUse` (`Read`) | N/A | N/A | N/A |
+| **`PreWrite`** | N/A | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `PreToolUse` (matcher `write_file` / `edit_file`) | N/A | Pre-commit |
 | **`PostWrite`** | `afterFileEdit` | `post_write_code` | `PostToolUse` (`Edit`/`Write`) | `PostToolUse` (matcher `write_file` / `edit_file`) | `lint-cmd` (post-edit) | Post-commit |
 | **`PreCommand`** | `beforeShellExecution` | `pre_run_command` | `PreToolUse` (`Bash`) | `PreToolUse` (matcher `run_command`) | N/A | Pre-commit |
 | **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | `PostToolUse` (matcher `run_command`) | N/A | Post-commit |
@@ -25,6 +26,13 @@ own.
 > any official documentation on 2026-07-26 — see
 > [`specs/continue.md`](specs/continue.md) for the URLs checked. A column of
 > guessed event names is worse than no column.
+>
+> **Cursor has no pre-write hook.** Its complete set is `beforeSubmitPrompt`,
+> `beforeShellExecution`, `beforeMCPExecution`, `beforeReadFile`, and
+> `afterFileEdit` — see [`specs/cursor.md`](specs/cursor.md). `beforeReadFile`
+> gates a *read*, so it belongs on the `PreRead` row; wiring it to `PreWrite`
+> installs a gate that never fires on a write and denies reads instead. The
+> pre-commit fallback in the last column is the write gate on Cursor.
 >
 > **Aider** appears with only its two real hooks. `lint-cmd` and `test-cmd` run
 > *after* an edit, so Aider cannot gate a `Pre*` event; the previous entries

@@ -2,6 +2,7 @@
   "allow_secrets_in": [
     "skills/captain-hook/examples/payloads/*.json",
     "skills/captain-hook/references/*.md",
+    "skills/captain-hook/scripts/*",
     "skills/captain-hook/SKILL.md"
   ]
 }

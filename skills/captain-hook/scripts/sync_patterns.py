@@ -55,6 +55,8 @@ def splice(text: str, markers: tuple[str, str], body: str, path: pathlib.Path) -
 
 
 def main() -> int:
+    # The ✓/❌ markers below need a UTF-8 stdout; CI containers default to C.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
         "--check",
@@ -65,14 +67,14 @@ def main() -> int:
 
     drifted = []
     for path, markers, render in TARGETS:
-        current = path.read_text()
+        current = path.read_text(encoding="utf-8")
         updated = splice(current, markers, render(), path)
         if current == updated:
             continue
         if args.check:
             drifted.append(path)
         else:
-            path.write_text(updated)
+            path.write_text(updated, encoding="utf-8")
             print(f"  regenerated {path.relative_to(SKILL_DIR.parent.parent)}")
 
     if args.check:

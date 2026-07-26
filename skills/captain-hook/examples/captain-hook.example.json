@@ -6,6 +6,6 @@
     "tests/fixtures/*.json"
   ],
   "allow_commands": [
-    "^rm -rf \\./build/?$"
+    "^rm -rf ~/\\.cache/myapp/?$"
   ]
 }

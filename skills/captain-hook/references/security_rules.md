@@ -18,7 +18,7 @@ Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, th
 - **GitHub OAuth Access Token**: `(?i)gho_[0-9a-zA-Z]{36}`
 - **GitLab Personal Access Token**: `(?i)glpat-[0-9a-zA-Z\-]{20}`
 - **Private Key**: `-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----`
-- **OpenAI API Key**: `(?i)\bsk-(?!ant-)(proj-|svcacct-|admin-)?[a-zA-Z0-9_]{20,}[a-zA-Z0-9_\-]{12,}`
+- **OpenAI API Key**: `(?i)\bsk-(?:(?:proj|svcacct|admin)-[a-zA-Z0-9_\-]{40,}|(?!ant-)[a-zA-Z0-9]{32,})`
 - **Anthropic API Key**: `(?i)sk-ant-[a-zA-Z0-9\-]{40,}`
 <!-- END:SECRET_PATTERNS -->
 

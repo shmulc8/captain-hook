@@ -9,7 +9,10 @@ This document details the built-in policy rules enforced by `captain-hook`.
 Enforced during `PrePrompt`, `PreCommand`, `PreToolUse`, `pre_user_prompt`.
 
 > Not enforced on post-* events: the action has already happened, so a block is
-> not possible. A secret detected there is reported as a warning instead.
+> not possible. A secret detected there is reported as a warning instead. On
+> Claude Code's `PostToolUse` the warning exits `2` — which still blocks
+> nothing there (the tool already ran) but is the only exit code that shows
+> `stderr` to the model, so the agent that just wrote the key is told about it.
 
 ### Blocked Regex Patterns:
 
@@ -21,7 +24,7 @@ Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, th
 * **GitHub OAuth Access Token**: `(?i)gho_[0-9a-zA-Z]{36}`
 * **GitLab Personal Access Token**: `(?i)glpat-[0-9a-zA-Z\-]{20}`
 * **Private Key**: `-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----`
-* **OpenAI API Key**: `(?i)\bsk-(?!ant-)(proj-|svcacct-|admin-)?[a-zA-Z0-9_]{20,}[a-zA-Z0-9_\-]{12,}`
+* **OpenAI API Key**: `(?i)\bsk-(?:(?:proj|svcacct|admin)-[a-zA-Z0-9_\-]{40,}|(?!ant-)[a-zA-Z0-9]{32,})`
 * **Anthropic API Key**: `(?i)sk-ant-[a-zA-Z0-9\-]{40,}`
 <!-- END:SECRET_PATTERNS -->
 
@@ -35,7 +38,8 @@ Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToo
 > possible.
 
 ### Blocked Command Patterns:
-* `rm -rf /` or `rm -rf ~` or `rm -rf *`
+* `rm` carrying `-r`, `-R`, or `-f` against `/`, `~`, or `*` — one flag is
+  enough, since `rm -f ~/.ssh/id_rsa` needs no `-r` to be irreversible
 * `mkfs` or `dd if=`
 * `git push --force`
 * `chmod -R 777`
@@ -51,6 +55,7 @@ parse shell syntax, so it is bypassed by ordinary constructs:
 | `rm -rf /` | yes |
 | `rm -r -f /` | yes (split flags, since the v1.1 tightening) |
 | `rm -rf "/"` | yes (quoted target, same change) |
+| `rm -f ~/.ssh/id_rsa` | yes (a single destructive flag counts) |
 | `rm -rf $HOME` | no — variable expansion |
 | `cd / && rm -rf .` | no — relative target |
 | `$(echo rm) -rf /` | no — command substitution |
@@ -68,7 +73,7 @@ a roll cage.
 
 ## 3. Path-Escape Guard (`symlink_guard`)
 
-Enforced during `PreWrite`, `beforeReadFile`, `pre_write_code`.
+Enforced during `PreWrite`, `PreRead`, `beforeReadFile`, `pre_read_code`, `pre_write_code`.
 
 > Not enforced on post-* events: the write has already happened, so a block is
 > not possible.
@@ -77,7 +82,13 @@ Enforced during `PreWrite`, `beforeReadFile`, `pre_write_code`.
 * Resolves the target path (and every parent component) with `os.path.realpath`, then checks it is under the repository root.
 * Blocks writes that resolve outside the repo, including new files created through a symlinked directory.
 * Allows symlinks that stay inside the repository — a link is not by itself a violation.
-* Repository root is the nearest ancestor containing `.git`; falls back to the working directory outside a repo.
+* Repository root is the nearest ancestor containing `.git`, searched from the
+  `cwd` the payload carries when the host supplies one (Cursor's `cwd`,
+  Windsurf's `tool_info.cwd`) and from the hook process's own working directory
+  otherwise. Hooks are not guaranteed to run with the repository as their
+  working directory, and the wrong root both blocks in-repo paths and looks for
+  `.captain-hook.json` in the wrong place. Falls back to that directory outside
+  a repo.
 
 ### Known limitation:
 * Windows junctions and reparse points are **not** handled. `realpath` resolves them inconsistently across Python versions, so treat this guard as POSIX-only.
@@ -95,6 +106,9 @@ Enforced during `PostWrite`, `afterFileEdit`, `post_write_code`, `PostToolUse`.
   package from the npm registry, which is a network fetch and arbitrary code
   execution inside a hook.
 * Runs `ruff format <path>` for Python files when `ruff` is on `PATH`.
+* Only ever runs against a path inside the repository, and the
+  `node_modules/.bin` walk stops at the repository root — a stray `npm install`
+  in `$HOME` must not put an executable in this hook's path.
 * Both calls are bounded by a 10-second timeout. On timeout or failure the file
   is left unformatted and a warning is written to `stderr`; the hook never fails
   the write because of a formatter.
@@ -122,18 +136,32 @@ overrides. Every key is optional:
 {
   "ignore_paths": ["vendor/**"],
   "allow_secrets_in": ["tests/fixtures/*.json"],
-  "allow_commands": ["^rm -rf \\./build/?$"]
+  "allow_commands": ["^rm -rf ~/\\.cache/myapp/?$"]
 }
 ```
 
+Anchor `allow_commands` entries. `rm -rf ./build` needs no entry — a relative
+target is not on the denylist to begin with — so an entry that exempts nothing
+reads as protection that was never there.
+
 - Globs are matched against the path **relative to the repository root**, and
   also against the absolute path.
+- `*` does **not** cross a `/`. `tests/fixtures/*.json` exempts that one
+  directory, not the subtree under it; write `tests/fixtures/**` when a whole
+  subtree is what you mean. An override that reads as one directory must not
+  silently cover everything beneath it.
 - `allow_commands` takes regexes, not globs — deliberately, because commands
   are matched by regex everywhere else in this script. An invalid regex is
   reported and ignored rather than crashing the hook.
+- An `allow_commands` entry exempts **the text the denylist matched**, not the
+  whole command line. Allowing your release script's `git push --force` does
+  not also allow the `rm -rf ~/` someone chains onto it.
 - A malformed or unreadable config emits a `Warning:` and is treated as empty.
   **All guards stay on.** A config parse error must never become a global
-  disable.
+  disable. The same applies to a key with the wrong value type: `"ignore_paths":
+  "vendor/**"` (a string where a list belongs) is reported and ignored, because
+  iterating it would test every guard against its individual characters — one
+  of which is `*`.
 - Every suppression writes a `Note:` line to `stderr` naming the path and the
   key that allowed it. An override you cannot see is an override that goes
   stale silently.
