@@ -103,14 +103,14 @@ This document provides exact, authoritative specifications for all supported AI 
 
 ## 4. Aider AI
 
-- **Config Path**: `.aider.conf.yml` (Workspace) or `~/.aider.conf.yml` (Global)
+- **Config Path**: `.aider.conf.yml`, searched in the home directory, the git repo root, then the current directory — later files win
 - **YAML Schema**:
   ```yaml
   auto-lint: true
   lint-cmd: "<CAPTAIN_HOOK> dispatch PostWrite"
   auto-test: true
   test-cmd: "python3 -m unittest discover tests"
-  auto-commit: true
+  auto-commits: true
   ```
 
 ---
@@ -126,6 +126,6 @@ This document provides exact, authoritative specifications for all supported AI 
 
 ## 6. Continue CLI (`cn`)
 
-- **Config Path**: `~/.continue/settings.json`
-- **Supported Events**: 17 CLI events including `PreToolUse`, `UserPromptSubmit`, `TaskCompleted`.
-- **Blocking Contract**: Exit Code **2** blocks execution.
+- **Verification status**: **unverified**. No official hooks documentation could be located on 2026-07-26 (`docs.continue.dev/cli/hooks`, `docs.continue.dev/guides/cli-hooks`, and `docs.continue.dev/guides/cli` all 404; the docs index documents `config.yaml`, Rules, and Prompts, with no lifecycle hooks).
+- **Config Path**: `config.yaml` is the documented configuration surface; `config.json` is deprecated.
+- **Blocking Contract**: unknown. The previously listed "17 CLI events" and exit-code-2 contract were unsourced and have been removed — see [`specs/continue.md`](specs/continue.md).

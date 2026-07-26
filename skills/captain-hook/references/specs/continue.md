@@ -1,42 +1,52 @@
-# Exhaustive Continue CLI (`cn`) Hooks Specification
+# Continue CLI (`cn`) — Unverified
 
-## 1. Overview & Architecture
+> Source: https://docs.continue.dev/ (index and CLI section) — checked 2026-07-26, no hooks documentation found
 
-The Continue CLI (`cn`) features an agent lifecycle **Hooks System** configured via `~/.continue/settings.json` or project settings. It allows shell scripts or HTTP endpoints to intercept 17 CLI events.
+## Verification Status
 
----
+**No official documentation could be located for a Continue CLI hooks system as
+of 2026-07-26.**
 
-## 2. Configuration File Locations
+URLs checked:
 
-| Level | File Path |
-| :--- | :--- |
-| **Workspace** | `.continue/settings.json` |
-| **User Global** | `~/.continue/settings.json` |
+- `https://docs.continue.dev/` — documents `config.yaml`, the deprecated
+  `config.json`, model providers, model roles, MCP servers, Rules, and Prompts.
+  No lifecycle hooks, no event names, no event count.
+- `https://docs.continue.dev/cli/hooks` — 404
+- `https://docs.continue.dev/guides/cli-hooks` — 404
+- `https://docs.continue.dev/guides/cli` — 404
 
----
+The claims previously made in this file — a `~/.continue/settings.json` /
+`.continue/settings.json` hooks block, "17 CLI events", the event names
+`PreToolUse` / `UserPromptSubmit` / `TaskCompleted`, and an exit-code-2 blocking
+contract — were unsourced and have been removed. The event names were
+Claude Code's, which is what first made them suspect.
 
-## 3. Configuration Schema (`settings.json`)
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      { "command": "python3 .continue/hooks/tool_guard.py" }
-    ],
-    "UserPromptSubmit": [
-      { "command": "python3 .continue/hooks/prompt_guard.py" }
-    ],
-    "TaskCompleted": [
-      { "command": "echo 'Task Done'" }
-    ]
-  }
-}
-```
+Two open issues in the Continue repository request that hooks documentation be
+written, which is consistent with the feature existing in the CLI while being
+undocumented. **A GitHub issue is not a specification.** Nothing is asserted
+here about the shape of that feature, because nothing could be sourced.
 
 ---
 
-## 4. Stdin Payload & Exit Code Semantics
+## What is documented
 
-- **Input (`stdin`)**: JSON object containing event type, prompt text, tool inputs, and session ID.
-- **Exit Code 0**: Allow operation.
-- **Exit Code 2**: **BLOCK / REJECT**. Continue CLI cancels execution and feeds `stderr` to the model.
+Continue's configuration surface is `config.yaml` (with `config.json`
+deprecated). Rules and Prompts are text injected as model context — they shape
+generation, they do not intercept or block a tool call.
+
+---
+
+## If you need blocking with Continue
+
+Put the guard outside the agent: a git `pre-commit` hook or a CI gate. See
+[`../ci_cd_integration.md`](../ci_cd_integration.md).
+
+---
+
+## Re-verifying this file
+
+When Continue publishes hooks documentation, replace this file with the real
+contract and update the provenance line. Until then, treat any Continue hook
+example found elsewhere — including in this repository's history — as
+unverified.

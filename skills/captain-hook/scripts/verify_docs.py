@@ -122,6 +122,24 @@ def _substring_gate(needles: tuple[str, ...], why: str) -> list[str]:
     return failures
 
 
+PROVENANCE_RE = re.compile(
+    r"^> Source: .*https?://\S+.* — (?:verified|checked) \d{4}-\d{2}-\d{2}", re.M
+)
+
+
+def check_spec_provenance() -> list[str]:
+    """Every agent spec cites a source URL and the date it was checked.
+
+    Turns the provenance convention into a gate. Without it these files drift
+    invisibly — Windsurf's docs already moved hosts once.
+    """
+    failures = []
+    for path in sorted((SKILL_DIR / "references" / "specs").glob("*.md")):
+        if not PROVENANCE_RE.search(path.read_text()):
+            failures.append(f"{rel(path)}: missing '> Source: <url> — verified <YYYY-MM-DD>' line")
+    return failures
+
+
 def check_relative_links() -> list[str]:
     """7. Every relative markdown link resolves to a file that exists."""
     failures = []
@@ -160,6 +178,7 @@ CHECKS = [
     ("No 'or non-zero blocks' exit-code claim", check_exit_code_fiction),
     ("No cross-project contamination", check_contamination),
     ("No invented Amazon Q blocking schema", check_amazon_q_schema),
+    ("Agent specs cite a verified source", check_spec_provenance),
     ("Relative markdown links resolve", check_relative_links),
     ("Fenced Python blocks compile", check_python_blocks),
 ]

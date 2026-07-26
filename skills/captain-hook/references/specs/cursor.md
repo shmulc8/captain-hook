@@ -1,5 +1,7 @@
 # Exhaustive Cursor AI Hooks Specification
 
+> Source: https://cursor.com/docs/agent/hooks — verified 2026-07-26
+
 ## 1. Overview & Architecture
 
 Cursor AI provides a native **Executable Hooks System** (`https://cursor.com/docs/hooks`) that intercepts agent operations by executing local binaries or scripts (Python, Bash, Node.js) at key lifecycle events.

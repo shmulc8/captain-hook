@@ -1,5 +1,7 @@
 # Exhaustive Claude Code Hooks Specification
 
+> Source: https://code.claude.com/docs/en/hooks — verified 2026-07-26
+
 ## 1. Overview & Architecture
 
 Claude Code (Anthropic's CLI agent) supports user-defined hooks configured inside `settings.json`. Hooks execute automatically at session lifecycle points and before/after tool calls, receiving JSON payloads on standard input (`stdin`).

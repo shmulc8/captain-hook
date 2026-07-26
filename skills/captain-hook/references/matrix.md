@@ -6,16 +6,28 @@ This document maps canonical lifecycle events to vendor-native **Executable Hook
 
 ## 1. Executable Hook Mapping Table
 
-| Canonical Event | Cursor AI | Windsurf (Cascade) | Claude Code | Antigravity (AGY) | Continue CLI (`cn`) | Aider AI | Git Hooks |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | `PreInvocation` | `UserPromptSubmit` | Pre-Chat Hook | Pre-commit |
-| **`PreWrite`** | `beforeReadFile` | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `PreToolUse` (matcher `write_file\|edit_file`) | `PreToolUse` | `auto-lint` pre-pass | Pre-commit |
-| **`PostWrite`** | `afterFileEdit` | `post_write_code` | `PostToolUse` (`Edit`/`Write`) | `PostToolUse` (matcher `write_file\|edit_file`) | `PostToolUse` | `lint-cmd` | Post-commit |
-| **`PreCommand`** | `beforeShellExecution` | `pre_run_command` | `PreToolUse` (`Bash`) | `PreToolUse` (matcher `run_command`) | `PreToolUse` | Pre-exec Hook | Pre-commit |
-| **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | `PostToolUse` (matcher `run_command`) | `PostToolUse` | Post-exec Hook | Post-commit |
-| **`PreMCP`** | `beforeMCPExecution` | `pre_mcp_tool_use` | `PreToolUse` (MCP) | `PreToolUse` (MCP matcher) | `PreToolUse` | MCP Proxy Hook | N/A |
-| **`PostMCP`** | N/A | `post_mcp_tool_use` | `PostToolUse` (MCP) | `PostToolUse` (MCP matcher) | `PostToolUse` | MCP Proxy Hook | N/A |
-| **`SessionEnd`** | `stop` | `post_cascade_response` | `Stop` / `SessionEnd` | `Stop` | `TaskCompleted` | `test-cmd` | Post-commit |
+| Canonical Event | Cursor AI | Windsurf (Cascade) | Claude Code | Antigravity (AGY) | Aider AI | Git Hooks |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | `PreInvocation` | N/A | Pre-commit |
+| **`PreWrite`** | `beforeReadFile` | `pre_write_code` | `PreToolUse` (`Edit`/`Write`) | `PreToolUse` (matcher `write_file` / `edit_file`) | N/A | Pre-commit |
+| **`PostWrite`** | `afterFileEdit` | `post_write_code` | `PostToolUse` (`Edit`/`Write`) | `PostToolUse` (matcher `write_file` / `edit_file`) | `lint-cmd` (post-edit) | Post-commit |
+| **`PreCommand`** | `beforeShellExecution` | `pre_run_command` | `PreToolUse` (`Bash`) | `PreToolUse` (matcher `run_command`) | N/A | Pre-commit |
+| **`PostCommand`** | N/A | `post_run_command` | `PostToolUse` (`Bash`) | `PostToolUse` (matcher `run_command`) | N/A | Post-commit |
+| **`PreMCP`** | `beforeMCPExecution` | `pre_mcp_tool_use` | `PreToolUse` (MCP) | `PreToolUse` (MCP matcher) | N/A | N/A |
+| **`PostMCP`** | N/A | `post_mcp_tool_use` | `PostToolUse` (MCP) | `PostToolUse` (MCP matcher) | N/A | N/A |
+| **`SessionEnd`** | `stop` | `post_cascade_response` | `Stop` / `SessionEnd` | `Stop` | `test-cmd` (post-edit) | Post-commit |
+
+> **Continue CLI is not listed.** Its hook system could not be verified against
+> any official documentation on 2026-07-26 — see
+> [`specs/continue.md`](specs/continue.md) for the URLs checked. A column of
+> guessed event names is worse than no column.
+>
+> **Aider** appears with only its two real hooks. `lint-cmd` and `test-cmd` run
+> *after* an edit, so Aider cannot gate a `Pre*` event; the previous entries
+> ("Pre-Chat Hook", "Pre-exec Hook", "MCP Proxy Hook") had no upstream basis.
+>
+> **OpenHands** has a real executable hook system (`.openhands/hooks.json`) and
+> is not yet mapped here — see [`specs/openhands_devin.md`](specs/openhands_devin.md).
 
 ---
 
