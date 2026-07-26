@@ -1,5 +1,20 @@
 {
   "name": "captain-hook",
   "version": "1.0.0",
-  "description": "Agent skill and plugin that helps developers and AI coding agents write, scaffold, audit, and manage native lifecycle hooks across 10+ AI coding agents."
+  "description": "Agent skill and plugin that helps developers and AI coding agents write, scaffold, audit, and manage native lifecycle hooks across 10+ AI coding agents.",
+  "author": {
+    "name": "shmulc8",
+    "url": "https://github.com/shmulc8"
+  },
+  "homepage": "https://github.com/shmulc8/captain-hook",
+  "repository": "https://github.com/shmulc8/captain-hook",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "ai-agent",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "security-guardrails"
+  ]
 }

@@ -1,0 +1,25 @@
+{
+  "pre_tool_use": [
+    {
+      "matcher": "terminal",
+      "hooks": [
+        { "command": "<CAPTAIN_HOOK> dispatch pre_tool_use", "timeout": 10 }
+      ]
+    }
+  ],
+  "user_prompt_submit": [
+    {
+      "hooks": [
+        { "command": "<CAPTAIN_HOOK> dispatch user_prompt_submit", "timeout": 10 }
+      ]
+    }
+  ],
+  "post_tool_use": [
+    {
+      "matcher": "str_replace_editor",
+      "hooks": [
+        { "command": "<CAPTAIN_HOOK> dispatch post_tool_use", "timeout": 10 }
+      ]
+    }
+  ]
+}

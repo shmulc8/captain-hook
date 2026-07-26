@@ -1,5 +1,7 @@
 # Exhaustive Cursor AI Hooks Specification
 
+> Source: https://cursor.com/docs/agent/hooks — verified 2026-07-26
+
 ## 1. Overview & Architecture
 
 Cursor AI provides a native **Executable Hooks System** (`https://cursor.com/docs/hooks`) that intercepts agent operations by executing local binaries or scripts (Python, Bash, Node.js) at key lifecycle events.
@@ -48,7 +50,7 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
     ],
     "afterFileEdit": [
       {
-        "command": "npx prettier --write \"$PATH\""
+        "command": "bash .cursor/hooks/format.sh"
       }
     ],
     "stop": [
@@ -59,6 +61,10 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
   }
 }
 ```
+The edited file's path arrives in the stdin payload — see section 4 — not on
+the command line. The formatter script also resolves the local binary rather
+than `npx`, which downloads an unpinned package from the npm registry inside a
+hook that runs on every write.
 
 ### Key Configuration Options:
 - `command`: The executable shell string to run.
@@ -138,8 +144,18 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
 
 ## 5. Exit Code Semantics & Responses
 
-* **Exit Code `0`**: Success / Allow.
-* **Exit Code `2` (or non-zero)**: Block / Deny. Standard error (`stderr`) is displayed in Cursor UI and fed to agent.
+* **Exit Code `0`**: Allow.
+* **Exit Code `2`**: Block — equivalent to returning `{"permission": "deny"}` on stdout. Standard error (`stderr`) is displayed in the Cursor UI and fed to the agent.
+* **Any other exit code that is not 0 or 2, a timeout, or invalid JSON**: Cursor is **fail-open by default** and the action proceeds. Set `"failClosed": true` on the hook entry to reverse this. `beforeReadFile` in particular logs the failure and allows the read through; `failClosed: true` is required there too.
+* **Alternative to exit codes** — print JSON on `stdout`:
+
+  | Event | Response shape |
+  | :--- | :--- |
+  | `beforeShellExecution`, `beforeMCPExecution` | `{"permission": "allow" \| "deny" \| "ask", "user_message": "...", "agent_message": "..."}` |
+  | `beforeReadFile` | `{"permission": "allow" \| "deny", "user_message": "..."}` |
+  | `beforeSubmitPrompt` | `{"continue": true \| false, "user_message": "..."}` |
+
+  `user_message` is shown to the developer; `agent_message` is fed back into the agent's context.
 
 ---
 

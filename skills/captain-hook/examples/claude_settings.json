@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "captain-hook dispatch PrePrompt"
+            "command": "<CAPTAIN_HOOK> dispatch PrePrompt"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "captain-hook dispatch PreToolUse"
+            "command": "<CAPTAIN_HOOK> dispatch PreToolUse"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "captain-hook dispatch PostToolUse"
+            "command": "<CAPTAIN_HOOK> dispatch PostToolUse"
           }
         ]
       }

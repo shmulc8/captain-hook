@@ -1,0 +1,7 @@
+{
+  "server": "github-mcp",
+  "tool": "create_issue",
+  "args": {
+    "title": "Bug"
+  }
+}

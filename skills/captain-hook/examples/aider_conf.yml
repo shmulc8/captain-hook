@@ -1,6 +1,9 @@
 # Example .aider.conf.yml configured for captain-hook
+# aider appends the edited filenames to lint-cmd, so the dispatcher receives
+# them as trailing arguments and uses the first as the target path — this is
+# the only channel aider has, since lint-cmd gets no JSON on stdin.
 auto-lint: true
-lint-cmd: "captain-hook dispatch PostWrite"
+lint-cmd: "<CAPTAIN_HOOK> dispatch PostWrite"
 auto-test: true
 test-cmd: "python3 -m unittest discover tests"
-auto-commit: true
+auto-commits: true

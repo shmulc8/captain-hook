@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "PreToolUse": [
+    {
+      "matcher": "run_command",
+      "hooks": [
+        { "type": "command", "command": "<CAPTAIN_HOOK> dispatch --decision-json PreCommand", "timeout": 30 }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "write_file|edit_file",
+      "hooks": [
+        { "type": "command", "command": "<CAPTAIN_HOOK> dispatch --decision-json PostWrite", "timeout": 30 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "event_type": "PreToolUse",
+  "tool_name": "terminal",
+  "tool_input": { "command": "rm -rf /" },
+  "session_id": "s_example"
+}
