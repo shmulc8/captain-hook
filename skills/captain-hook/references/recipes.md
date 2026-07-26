@@ -68,7 +68,8 @@ CMD=$(echo "$PAYLOAD" | python3 -c "
 import sys, json
 data = json.load(sys.stdin) if sys.stdin else {}
 tool_in = data.get('tool_input', {}) if isinstance(data.get('tool_input'), dict) else {}
-cmd = data.get('command') or data.get('command_string') or tool_in.get('command') or ''
+tool_info = data.get('tool_info', {}) if isinstance(data.get('tool_info'), dict) else {}
+cmd = data.get('command') or tool_in.get('command') or tool_info.get('command_line') or data.get('command_string') or ''
 print(cmd)
 ")
 

@@ -138,8 +138,18 @@ Hooks receive contextual event data via standard input (`stdin`) as a JSON strin
 
 ## 5. Exit Code Semantics & Responses
 
-* **Exit Code `0`**: Success / Allow.
-* **Exit Code `2` (or non-zero)**: Block / Deny. Standard error (`stderr`) is displayed in Cursor UI and fed to agent.
+* **Exit Code `0`**: Allow.
+* **Exit Code `2`**: Block — equivalent to returning `{"permission": "deny"}` on stdout. Standard error (`stderr`) is displayed in the Cursor UI and fed to the agent.
+* **Any other exit code that is not 0 or 2, a timeout, or invalid JSON**: Cursor is **fail-open by default** and the action proceeds. Set `"failClosed": true` on the hook entry to reverse this. `beforeReadFile` in particular logs the failure and allows the read through; `failClosed: true` is required there too.
+* **Alternative to exit codes** — print JSON on `stdout`:
+
+  | Event | Response shape |
+  | :--- | :--- |
+  | `beforeShellExecution`, `beforeMCPExecution` | `{"permission": "allow" \| "deny" \| "ask", "user_message": "...", "agent_message": "..."}` |
+  | `beforeReadFile` | `{"permission": "allow" \| "deny", "user_message": "..."}` |
+  | `beforeSubmitPrompt` | `{"continue": true \| false, "user_message": "..."}` |
+
+  `user_message` is shown to the developer; `agent_message` is fed back into the agent's context.
 
 ---
 

@@ -36,8 +36,16 @@ BLOCKED_COMMANDS = [
 
 def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
     tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    # Windsurf/Cascade nests every per-event field under tool_info.
+    tool_info = payload.get("tool_info") if isinstance(payload.get("tool_info"), dict) else {}
 
-    prompt = payload.get("prompt") or payload.get("user_prompt") or payload.get("raw") or ""
+    prompt = (
+        payload.get("prompt")
+        or payload.get("user_prompt")
+        or tool_info.get("user_prompt")
+        or payload.get("raw")
+        or ""
+    )
     path = (
         payload.get("path")
         or payload.get("filepath")
@@ -45,18 +53,34 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
         or payload.get("file")
         or tool_input.get("file_path")
         or tool_input.get("path")
+        or tool_info.get("file_path")
         or ""
     )
     command = (
         payload.get("command")
+        # Flat spelling from third-party templates. Not documented by any spec
+        # verified so far, but five specs are still unverified (Plan 009), so
+        # this stays as a defensive fallback rather than being deleted.
         or payload.get("command_string")
         or payload.get("cmd")
         or tool_input.get("command")
+        or tool_info.get("command_line")
         or ""
     )
-    tool = payload.get("tool") or payload.get("tool_name") or ""
-    server = payload.get("server") or payload.get("mcp_server_name") or ""
-    args = payload.get("args") or payload.get("arguments") or tool_input or {}
+    tool = (
+        payload.get("tool")
+        or payload.get("tool_name")
+        or tool_info.get("mcp_tool_name")
+        or payload.get("agent_action_name")
+        or ""
+    )
+    server = (
+        payload.get("server")
+        or payload.get("mcp_server_name")
+        or tool_info.get("mcp_server_name")
+        or ""
+    )
+    args = payload.get("args") or payload.get("arguments") or tool_input or tool_info or {}
 
     return prompt, path, command, tool, server, args
 

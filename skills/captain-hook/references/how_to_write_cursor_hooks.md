@@ -57,8 +57,18 @@ Cursor passes event context as a JSON string over `stdin`:
 
 ## 4. Exit Code Rules & Blocking Contract
 
-- **Exit Code 0**: Allow. Cursor proceeds with the action.
-- **Exit Code 2 (or non-zero)**: Reject. Cursor **blocks** the action and displays `stderr` in the IDE.
+- **Exit Code 0**: Allow.
+- **Exit Code 2**: Block — equivalent to returning `{"permission": "deny"}` on
+  stdout.
+- **Any other exit code that is not 0 or 2, a timeout, or invalid JSON**: Cursor
+  is **fail-open by default** and the action proceeds. Set `"failClosed": true`
+  on the hook entry to reverse this. `beforeReadFile` in particular logs the
+  failure and allows the read through; `failClosed: true` is required there too.
+- **Alternative to exit codes**: print JSON on stdout —
+  `{"permission": "deny", "user_message": "...", "agent_message": "..."}` for
+  `beforeShellExecution` / `beforeMCPExecution`, `{"permission": "deny", "user_message": "..."}`
+  for `beforeReadFile`, and `{"continue": false, "user_message": "..."}` for
+  `beforeSubmitPrompt`.
 
 ---
 

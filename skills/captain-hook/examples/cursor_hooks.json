@@ -3,32 +3,32 @@
   "hooks": {
     "beforeSubmitPrompt": [
       {
-        "command": "captain-hook dispatch PrePrompt"
+        "command": "<CAPTAIN_HOOK> dispatch PrePrompt"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": "captain-hook dispatch PreCommand"
+        "command": "<CAPTAIN_HOOK> dispatch PreCommand"
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "captain-hook dispatch PreMCP"
+        "command": "<CAPTAIN_HOOK> dispatch PreMCP"
       }
     ],
     "beforeReadFile": [
       {
-        "command": "captain-hook dispatch PreWrite"
+        "command": "<CAPTAIN_HOOK> dispatch PreWrite"
       }
     ],
     "afterFileEdit": [
       {
-        "command": "captain-hook dispatch PostWrite"
+        "command": "<CAPTAIN_HOOK> dispatch PostWrite"
       }
     ],
     "stop": [
       {
-        "command": "captain-hook dispatch SessionEnd"
+        "command": "<CAPTAIN_HOOK> dispatch SessionEnd"
       }
     ]
   }
