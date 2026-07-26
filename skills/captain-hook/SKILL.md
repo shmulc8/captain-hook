@@ -232,43 +232,61 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ---
 
-## 6. Extending `captain-hook` (Modular Architecture)
+## 7. Extending the Reference Dispatcher
 
-`captain-hook` features a pluggable Python architecture designed for easy extension:
+`scripts/captain_hook.py` is a single ~120-line standalone script with no
+dependencies and no plugin system. You extend it by editing it. That is
+deliberate: a hook script must start fast and must not fail on a missing import.
 
-### Creating a Custom Security Policy
-To add a project-specific security guard:
+### Adding a secret pattern
 
-```python
-from captain_hook import BasePolicy, HookPayload, PolicyResult, CanonicalEvent
-
-class CustomOrgPolicy(BasePolicy):
-    name = "custom_org_policy"
-    events_handled = [CanonicalEvent.PRE_PROMPT]
-
-    def evaluate(self, event: str, payload: HookPayload) -> PolicyResult:
-        if "INTERNAL_SECRET" in payload.prompt:
-            return PolicyResult(allowed=False, exit_code=2, message="Blocked: Internal token leak")
-        return PolicyResult(allowed=True, exit_code=0)
-
-# Register with engine
-from captain_hook import Engine
-engine = Engine()
-engine.register_policy(CustomOrgPolicy())
-```
-
-### Adding a New Agent Adapter
-To support a new AI coding agent:
+Append a `(compiled_regex, label)` tuple to `SECRET_PATTERNS`:
 
 ```python
-from captain_hook.adapters import BaseAgentAdapter
-
-class NewAgentAdapter(BaseAgentAdapter):
-    name = "new_agent"
-    config_relpath = ".newagent/hooks.json"
-
-    def generate_config_content(self) -> dict:
-        return {"hooks": {"pre_tool": "captain-hook dispatch PreWrite"}}
-
-engine.register_adapter(NewAgentAdapter())
+SECRET_PATTERNS = [
+    # ... existing entries ...
+    (re.compile(r"(?i)\backme_tok_[0-9a-f]{32}\b"), "Acme Internal Token"),
+]
 ```
+
+### Adding a blocked command
+
+Append a compiled regex to `BLOCKED_COMMANDS`:
+
+```python
+BLOCKED_COMMANDS = [
+    # ... existing entries ...
+    re.compile(r"\bkubectl\s+delete\s+ns\b"),
+]
+```
+
+### Adding a whole guard
+
+Guards are sequential blocks inside `dispatch_event()`. Add yours in the same
+shape — inspect the extracted fields, write a reason to `stderr`, `return 2`:
+
+```python
+    # ... inside dispatch_event(), after the existing guards ...
+    # 5. Protected-path guard
+    if path and "/infra/prod/" in path:
+        sys.stderr.write(f"captain-hook: Blocked: '{path}' is a protected production path\n")
+        return 2
+```
+
+Order matters: guards run top to bottom and the first `return 2` wins.
+
+### Supporting a new agent
+
+There is no adapter registry. Two things are needed:
+
+1. If the agent's payload uses field names not already handled, add them to the
+   relevant `or`-chain in `extract_fields()`. Each chain covers every agent's
+   spelling of one concept — do not remove existing entries.
+2. Add a config template under `examples/` and a spec under `references/specs/`.
+
+### The extension you cannot make this way
+
+The dispatcher signals allow/deny purely through its exit code. Agents that
+decide via a JSON object on `stdout` (Google Antigravity) cannot be blocked by
+it at all. Supporting them requires an output-protocol mode, which does not
+exist yet.
