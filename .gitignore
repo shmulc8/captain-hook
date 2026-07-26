@@ -97,6 +97,9 @@ graphify-out/
 # Local execution plans (not shipped with the plugin)
 plans/
 
+# Test fixtures, in case a future change puts one back inside the tree
+.verify_symlink_tmp/
+
 # The payload fixtures are the suite's inputs, and the credentials in them are
 # deliberately fake. `*token*.json` above matches one of them, which is how
 # cursor_beforeSubmitPrompt_gitlab_token.json stayed untracked while the suite

@@ -15,6 +15,21 @@ REPO_DIR="$(dirname "$(dirname "$ROOT_DIR")")"
 TEST_PASSED=0
 TEST_FAILED=0
 
+# Fixtures are torn down on any exit path, not just a clean return: `set -e`
+# is on, so a failing `ln -s` (a filesystem without symlink support) aborts
+# mid-function and a RETURN trap never fires.
+CH_TMPDIRS=()
+cleanup_tmpdirs() { [ ${#CH_TMPDIRS[@]} -eq 0 ] || rm -rf "${CH_TMPDIRS[@]}"; }
+trap cleanup_tmpdirs EXIT INT TERM
+
+# Sets CH_LAST_TMPDIR rather than printing the path: a command substitution
+# runs in a subshell, so an array append inside one would be discarded and
+# nothing would ever reach the EXIT trap.
+new_tmpdir() {
+  CH_LAST_TMPDIR="$(mktemp -d)"
+  CH_TMPDIRS+=("$CH_LAST_TMPDIR")
+}
+
 run_test() {
   local name="$1"
   local payload_file="$2"
@@ -73,30 +88,31 @@ run_decision_test() {
 # not a violation), while a path that resolves outside the repo is blocked
 # even when the file does not exist yet.
 run_symlink_tests() {
-  local tmp inrepo
-  tmp="$(mktemp -d)"
-  inrepo="$ROOT_DIR/.verify_symlink_tmp"
-  mkdir -p "$inrepo"
-  trap 'rm -rf "$tmp" "$inrepo"' RETURN
+  local tmp repo outside
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
+  trap 'rm -rf "$tmp"' RETURN
+  repo="$tmp/repo"
+  outside="$tmp/outside"
+  mkdir -p "$repo/.git" "$outside"
 
-  echo "outside" > "$tmp/outside.txt"
-  echo "real" > "$inrepo/real.txt"
-  ln -s "$inrepo/real.txt" "$inrepo/in_link.txt"
-  ln -s "$tmp/outside.txt" "$inrepo/out_link.txt"
-  ln -s "$tmp" "$inrepo/outdir"
+  echo "outside" > "$outside/outside.txt"
+  echo "real" > "$repo/real.txt"
+  ln -s "$repo/real.txt" "$repo/in_link.txt"
+  ln -s "$outside/outside.txt" "$repo/out_link.txt"
+  ln -s "$outside" "$repo/outdir"
 
   payload() {
     printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$1" > "$2"
   }
-  payload "$inrepo/real.txt"        "$tmp/p_real.json"
-  payload "$inrepo/in_link.txt"     "$tmp/p_inlink.json"
-  payload "$inrepo/out_link.txt"    "$tmp/p_outlink.json"
-  payload "$inrepo/outdir/new.txt"  "$tmp/p_newvialink.json"
+  payload "$repo/real.txt"        "$tmp/p_real.json"
+  payload "$repo/in_link.txt"     "$tmp/p_inlink.json"
+  payload "$repo/out_link.txt"    "$tmp/p_outlink.json"
+  payload "$repo/outdir/new.txt"  "$tmp/p_newvialink.json"
 
-  run_test "Plain in-repo file (Allow)"          "$tmp/p_real.json"       "PreToolUse" 0
-  run_test "In-repo symlink to in-repo (Allow)"  "$tmp/p_inlink.json"     "PreToolUse" 0
-  run_test "Symlink escaping the repo (Block)"   "$tmp/p_outlink.json"    "PreToolUse" 2
-  run_test "New file via symlinked dir (Block)"  "$tmp/p_newvialink.json" "PreToolUse" 2
+  run_test "Plain in-repo file (Allow)"          "$tmp/p_real.json"       "PreToolUse" 0 "$repo"
+  run_test "In-repo symlink to in-repo (Allow)"  "$tmp/p_inlink.json"     "PreToolUse" 0 "$repo"
+  run_test "Symlink escaping the repo (Block)"   "$tmp/p_outlink.json"    "PreToolUse" 2 "$repo"
+  run_test "New file via symlinked dir (Block)"  "$tmp/p_newvialink.json" "PreToolUse" 2 "$repo"
 }
 
 # The default-workdir cases below do not depend on the repository's own
@@ -160,7 +176,7 @@ run_symlink_tests
 # that will not parse must never turn the guards off.
 run_override_tests() {
   local tmp key
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/.git" "$tmp/fixtures"
   key="AKIAAAAAAAAAAAAAAAAA"
@@ -231,7 +247,7 @@ run_override_tests
 # one, because a hook is not guaranteed to run with the repo as its cwd.
 run_containment_tests() {
   local tmp
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/repo/.git" "$tmp/repo/fixtures" "$tmp/elsewhere"
 
@@ -256,7 +272,7 @@ run_containment_tests
 # reports an ordinary in-repo file as escaping (false block).
 run_relative_path_tests() {
   local tmp
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/repo/.git" "$tmp/repo/sub" "$tmp/repo/src" "$tmp/elsewhere"
 
@@ -279,7 +295,7 @@ run_relative_path_tests
 # a commit hook no stdin and no arguments, so every extracted field was empty.
 run_precommit_tests() {
   local tmp
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   git -C "$tmp" init -q
   git -C "$tmp" config user.email t@example.com
@@ -309,7 +325,7 @@ run_decision_test "Decision JSON is empty on a post event"  "$ROOT_DIR/examples/
 # arbitrary-code-execution problem `npx` was dropped to avoid.
 run_node_bin_tests() {
   local tmp
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/outer/node_modules/.bin" "$tmp/outer/repo/.git" "$tmp/outer/repo/src"
   printf '#!/bin/sh\nexit 0\n' > "$tmp/outer/node_modules/.bin/prettier"
@@ -375,7 +391,7 @@ fi
 # fallback silently disables the path guard for aider entirely.
 run_argv_tests() {
   local tmp
-  tmp="$(mktemp -d)"
+  new_tmpdir; tmp="$CH_LAST_TMPDIR"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/.git"
   printf 'x\n' > "$tmp/in_repo.txt"
