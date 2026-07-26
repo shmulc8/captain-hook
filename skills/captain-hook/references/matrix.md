@@ -6,6 +6,10 @@ This document maps canonical lifecycle events to vendor-native **Executable Hook
 
 ## 1. Executable Hook Mapping Table
 
+The **Git Hooks** column is not an AI coding agent — it is included because a git
+`pre-commit` hook is the fallback gate for every agent that cannot block on its
+own.
+
 | Canonical Event | Cursor AI | Windsurf (Cascade) | Claude Code | Antigravity (AGY) | Aider AI | Git Hooks |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`PrePrompt`** | `beforeSubmitPrompt` | `pre_user_prompt` | `UserPromptSubmit` | `PreInvocation` | N/A | Pre-commit |
@@ -46,3 +50,22 @@ Exit `2` is the block signal, but only where the host is still able to act:
 | **Cursor** | Yes, equivalent to `permission: "deny"` | **Yes by default** — set `failClosed: true` per hook to fail closed |
 | **Windsurf** | Only on the five `pre_*` hooks | Yes — other codes proceed |
 | **Antigravity** | **No** — decide via `{"decision": "deny"}` on stdout | See its spec |
+
+---
+
+## 3. Agents excluded from the matrix above
+
+These agents have no executable hook system, so there is nothing to map to a
+canonical event. Their specs cover what they *do* offer:
+
+| Agent | Mechanism | Spec |
+| :--- | :--- | :--- |
+| Aider AI | `lint-cmd` / `test-cmd` feedback loop, post-edit only | [spec](specs/aider.md) |
+| Roo Code / Cline | `.clinerules`, `.roomodes` mode definitions | [spec](specs/roo_cline.md) |
+| GitHub Copilot | `.github/copilot-instructions.md` + git hooks | [spec](specs/copilot.md) |
+| Amazon Q | `.amazonq/rules/*.md` Markdown context | [spec](specs/amazon_q.md) |
+| Continue CLI (`cn`) | unverified — no upstream hooks documentation found | [spec](specs/continue.md) |
+
+**OpenHands** does have an executable hook system (`.openhands/hooks.json`, exit
+`2` blocks) and is neither excluded nor yet mapped to canonical events — see
+[its spec](specs/openhands_devin.md).

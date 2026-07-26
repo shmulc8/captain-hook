@@ -261,18 +261,26 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ## 6. Complete Agent Specification Library (`references/specs/`)
 
-`captain-hook` contains **exhaustive, self-contained specifications** for every major AI coding agent:
+Every spec carries a `> Source:` line naming the upstream URL and the date it was last checked. The roster is split by what an agent can actually do.
 
-- 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), and event lifecycle.
-- 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, Exit Code 2 cancellation, and `pre_*`/`post_*` events.
+### Agents with executable hooks (can block an action)
+
 - 🤖 **[Claude Code Specification](references/specs/claude_code.md)** — `.claude/settings.json` schema, `PreToolUse`/`PostToolUse`, and native tool payload shapes.
+- 🎯 **[Cursor AI Specification](references/specs/cursor.md)** — `.cursor/hooks.json` schema, `stdin` payloads (`filepath`, `prompt`), the stdout `permission` form, and the fail-open default.
+- 🏄‍♂️ **[Windsurf Cascade Specification](references/specs/windsurf.md)** — `.windsurf/hooks.json` hierarchy, the nested `tool_info` payload, and exit-2 cancellation on the five `pre_*` hooks.
+- 👐 **[OpenHands Hooks Specification](references/specs/openhands_devin.md)** — `.openhands/hooks.json`, six lifecycle events, exit `2` or a stdout `decision` field.
 - ⚡ **[Antigravity Specification](references/specs/antigravity.md)** — `.agents/hooks.json` schema, camelCase payloads, and the stdout `decision` contract (no exit codes).
-- 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml` schema, `auto-lint`, `lint-cmd`, and closed-loop feedback.
-- 🔄 **[Continue CLI Specification](references/specs/continue.md)** — `~/.continue/settings.json` schema and 17 CLI event hooks.
-- 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules`, `.roomodes`, and custom mode tools.
-- 👐 **[OpenHands & Devin Specification](references/specs/openhands_devin.md)** — `config.toml` action interceptors and observation listeners.
-- 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` and pre-commit git hooks.
-- 🅰️ **[Amazon Q Project Rules](references/specs/amazon_q.md)** — `.amazonq/rules/*.md` Markdown context files. **No executable hooks and no blocking contract** — advisory only.
+
+### Agents with rules and instruction files
+
+- 🦥 **[Aider AI Specification](references/specs/aider.md)** — `.aider.conf.yml`, `auto-lint`/`lint-cmd`, and the post-edit feedback loop — **advisory only, cannot block**.
+- 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules` rules and `.roomodes` custom modes — **advisory only, cannot block**.
+- 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` plus git `pre-commit` hooks — **advisory only, cannot block**.
+- 🅰️ **[Amazon Q Project Rules](references/specs/amazon_q.md)** — `.amazonq/rules/*.md` Markdown context files — **advisory only, cannot block**.
+
+### Unverified
+
+- 🔄 **[Continue CLI Specification](references/specs/continue.md)** — no official hooks documentation could be located on 2026-07-26; the file records the URLs checked and claims nothing.
 
 ---
 
