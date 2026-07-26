@@ -26,7 +26,7 @@ GitHub Copilot Workspace and Copilot CLI use repository instruction files (`.git
 ### `.git/hooks/pre-commit`
 ```bash
 #!/usr/bin/env bash
-python3 -m captain_hook dispatch PreCommit
+python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py dispatch PreCommit
 if [ $? -ne 0 ]; then
     echo "Commit blocked by captain-hook!" >&2
     exit 1

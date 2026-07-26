@@ -102,7 +102,7 @@ This document provides exact, authoritative specifications for all supported AI 
 - **YAML Schema**:
   ```yaml
   auto-lint: true
-  lint-cmd: "captain-hook dispatch PostWrite"
+  lint-cmd: "<CAPTAIN_HOOK> dispatch PostWrite"
   auto-test: true
   test-cmd: "python3 -m unittest discover tests"
   auto-commit: true

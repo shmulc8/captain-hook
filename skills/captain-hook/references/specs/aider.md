@@ -52,7 +52,7 @@ auto-commit: true
 ### `.aider.conf.yml`
 ```yaml
 auto-lint: true
-lint-cmd: "python3 -m captain_hook dispatch PostWrite"
+lint-cmd: "python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py dispatch PostWrite"
 auto-test: true
 test-cmd: "python3 -m unittest discover tests"
 ```

@@ -212,6 +212,7 @@ Read the reference guides for full copy-pasteable script implementations:
 - 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, command sandboxing, symlink guard, MCP governance).
 - 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.
 - 🚀 **[CI/CD Integration Guide](references/ci_cd_integration.md)** — Integrating hook verification into `.git/hooks/pre-commit` and GitHub Actions workflows.
+- 📦 **[Invocation & Install Guide](README-INSTALL.md)** — there is no `captain-hook` binary; `<CAPTAIN_HOOK>` in the shipped templates stands for `python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py`.
 
 ---
 
