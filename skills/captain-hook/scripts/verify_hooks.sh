@@ -32,21 +32,36 @@ run_test() {
   fi
 }
 
-# The symlink guard needs a real symlink, which cannot be committed portably,
-# so this case builds its own fixture and cleans up after itself.
+# The path-escape guard needs real symlinks, which cannot be committed
+# portably, so these cases build their own fixtures and clean up after
+# themselves. Note the split: an in-repo symlink is ALLOWED (being a link is
+# not a violation), while a path that resolves outside the repo is blocked
+# even when the file does not exist yet.
 run_symlink_tests() {
-  local tmp
+  local tmp inrepo
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  inrepo="$ROOT_DIR/.verify_symlink_tmp"
+  mkdir -p "$inrepo"
+  trap 'rm -rf "$tmp" "$inrepo"' RETURN
 
-  echo "real" > "$tmp/real.txt"
-  ln -s "$tmp/real.txt" "$tmp/link.txt"
+  echo "outside" > "$tmp/outside.txt"
+  echo "real" > "$inrepo/real.txt"
+  ln -s "$inrepo/real.txt" "$inrepo/in_link.txt"
+  ln -s "$tmp/outside.txt" "$inrepo/out_link.txt"
+  ln -s "$tmp" "$inrepo/outdir"
 
-  printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$tmp/link.txt" > "$tmp/link_payload.json"
-  printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$tmp/real.txt" > "$tmp/real_payload.json"
+  payload() {
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$1" > "$2"
+  }
+  payload "$inrepo/real.txt"        "$tmp/p_real.json"
+  payload "$inrepo/in_link.txt"     "$tmp/p_inlink.json"
+  payload "$inrepo/out_link.txt"    "$tmp/p_outlink.json"
+  payload "$inrepo/outdir/new.txt"  "$tmp/p_newvialink.json"
 
-  run_test "Symlink Target (Block)" "$tmp/link_payload.json" "PreToolUse" 2
-  run_test "Regular File (Allow)"   "$tmp/real_payload.json" "PreToolUse" 0
+  run_test "Plain in-repo file (Allow)"          "$tmp/p_real.json"       "PreToolUse" 0
+  run_test "In-repo symlink to in-repo (Allow)"  "$tmp/p_inlink.json"     "PreToolUse" 0
+  run_test "Symlink escaping the repo (Block)"   "$tmp/p_outlink.json"    "PreToolUse" 2
+  run_test "New file via symlinked dir (Block)"  "$tmp/p_newvialink.json" "PreToolUse" 2
 }
 
 # Run tests

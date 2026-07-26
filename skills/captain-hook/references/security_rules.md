@@ -37,9 +37,18 @@ Blocks execution of irreversible shell commands before they run in your local sh
 
 ---
 
-## 3. Out-of-Tree Symlink Guard (`symlink_guard`)
+## 3. Out-of-Tree Path-Escape Guard (`symlink_guard`)
 
-Prevents AI agents from clobbering or overwriting files outside the repository boundary through symlink redirection.
+Prevents AI agents from clobbering files outside the repository boundary. The
+target path is resolved with `os.path.realpath` — every component, parent
+directories included, and paths that do not exist yet — and blocked if it lands
+outside the repository root. That covers a new file written through a symlinked
+directory, which a plain "is this a symlink?" test misses.
+
+Symlinks that stay inside the repository are allowed: a link is not by itself a
+violation. The repository root is the nearest ancestor containing `.git`.
+
+**Limitation**: POSIX only. Windows junctions and reparse points are not handled.
 
 ---
 

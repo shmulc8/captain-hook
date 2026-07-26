@@ -96,12 +96,33 @@ exit 0
 
 ## Recipe 3: Symlink Guard (Python)
 
-Prevents the agent from writing to or modifying files through symlinks pointing outside the repository.
+Prevents the agent from writing to paths that resolve outside the repository, including through symlinked parent directories.
 
 ```python
 #!/usr/bin/env python3
-"""Symlink Write Guard for AI Coding Agents."""
+"""Path-Escape Write Guard for AI Coding Agents."""
 import sys, json, os
+
+def repo_root():
+    """Nearest ancestor containing .git, else the cwd. No subprocess."""
+    current = os.path.abspath(os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return os.path.abspath(os.getcwd())
+        current = parent
+
+def escapes_repo(path, root):
+    # realpath resolves every component, including parents, and works on paths
+    # that do not exist yet — that is what catches a NEW file written through
+    # a symlinked directory.
+    resolved = os.path.realpath(os.path.abspath(path))
+    if resolved == root:
+        return False, resolved
+    # startswith(root + os.sep) avoids the /repo vs /repo-backup prefix bug.
+    return not resolved.startswith(root + os.sep), resolved
 
 def main():
     stdin_data = sys.stdin.read()
@@ -110,23 +131,30 @@ def main():
 
     payload = json.loads(stdin_data)
     tool_in = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    tool_info = payload.get("tool_info") if isinstance(payload.get("tool_info"), dict) else {}
     path = (
         payload.get("path")
         or payload.get("filepath")
         or payload.get("file_path")
         or tool_in.get("file_path")
+        or tool_info.get("file_path")
         or ""
     )
 
-    if path and os.path.exists(path) and os.path.islink(path):
-        sys.stderr.write(f"Blocked by captain-hook: Target file '{path}' is a symlink pointing outside repository boundaries!\n")
-        sys.exit(2)
+    if path:
+        escapes, resolved = escapes_repo(path, os.path.realpath(repo_root()))
+        if escapes:
+            sys.stderr.write(f"Blocked by captain-hook: '{path}' resolves to '{resolved}', outside the repository root!\n")
+            sys.exit(2)
 
     sys.exit(0)
 
 if __name__ == "__main__":
     main()
 ```
+
+A symlink that stays inside the repository is allowed — being a link is not by
+itself a violation. POSIX only; Windows junctions are not handled.
 
 ---
 

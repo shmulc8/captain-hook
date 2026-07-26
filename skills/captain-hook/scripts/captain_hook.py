@@ -85,6 +85,38 @@ def extract_fields(payload: dict) -> tuple[str, str, str, str, str, dict]:
     return prompt, path, command, tool, server, args
 
 
+def _repo_root(start: str | None = None) -> str:
+    """Nearest ancestor directory containing a .git entry, else the cwd.
+
+    Walks up rather than shelling out to git: this runs on every hook
+    invocation and must not spawn a subprocess.
+    """
+    current = os.path.abspath(start or os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return os.path.abspath(start or os.getcwd())
+        current = parent
+
+
+def escapes_repo(path: str, root: str | None = None) -> tuple[bool, str]:
+    """Does `path` resolve outside the repository root?
+
+    Resolves symlinks in every path component, including parent directories
+    and including paths that do not exist yet, so a write to a new file
+    through a symlinked directory is caught.
+
+    Returns (escapes, resolved_path).
+    """
+    root = os.path.realpath(root or _repo_root())
+    resolved = os.path.realpath(os.path.abspath(path))
+    if resolved == root:
+        return False, resolved
+    return not resolved.startswith(root + os.sep), resolved
+
+
 def dispatch_event(event_name: str, stdin_data: str) -> int:
     payload = {}
     if stdin_data.strip():
@@ -111,10 +143,15 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                 sys.stderr.write(f"captain-hook: Blocked: Dangerous shell command pattern matched ({pattern.pattern})\n")
                 return 2
 
-    # 3. Symlink Guard
-    if path and os.path.exists(path) and os.path.islink(path):
-        sys.stderr.write(f"captain-hook: Blocked: Target file '{path}' is a symlink pointing outside repository boundaries\n")
-        return 2
+    # 3. Symlink / Path-Escape Guard
+    if path:
+        escapes, resolved = escapes_repo(path)
+        if escapes:
+            sys.stderr.write(
+                f"captain-hook: Blocked: '{path}' resolves to '{resolved}', "
+                f"outside the repository root\n"
+            )
+            return 2
 
     # 4. Post-Write Auto Formatting
     if event_name in ("PostWrite", "afterFileEdit", "post_write_code", "PostToolUse") and path and os.path.exists(path):

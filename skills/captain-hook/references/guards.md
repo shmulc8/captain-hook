@@ -37,13 +37,18 @@ Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToo
 
 ---
 
-## 3. Symlink Guard (`symlink_guard`)
+## 3. Path-Escape Guard (`symlink_guard`)
 
 Enforced during `PreWrite`, `beforeReadFile`, `pre_write_code`.
 
 ### Behavior:
-* Checks if `path` exists and returns `islink(path) == True`.
-* Refuses writes through symlinks pointing outside the repository boundaries to prevent out-of-tree file clobbering.
+* Resolves the target path (and every parent component) with `os.path.realpath`, then checks it is under the repository root.
+* Blocks writes that resolve outside the repo, including new files created through a symlinked directory.
+* Allows symlinks that stay inside the repository — a link is not by itself a violation.
+* Repository root is the nearest ancestor containing `.git`; falls back to the working directory outside a repo.
+
+### Known limitation:
+* Windows junctions and reparse points are **not** handled. `realpath` resolves them inconsistently across Python versions, so treat this guard as POSIX-only.
 
 ---
 
