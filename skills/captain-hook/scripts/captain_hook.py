@@ -631,9 +631,10 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
                 break
 
     # 4. Post-Write Auto Formatting — locally installed tools only.
-    # Known uncovered: no test actually formats a file. Doing so would require
+    # Known uncovered: no test formats a real file. Doing so would require
     # prettier or ruff on the machine, and the suite is deliberately
-    # dependency-free. The timeout and the missing-binary path are tested.
+    # dependency-free. What IS covered: the timeout, the missing-binary path,
+    # and the node_modules walk's containment clamp — see verify_hooks.sh.
     # The formatter rewrites the file it is pointed at, so it gets the same
     # containment as a write: a post event naming a path outside the repository
     # is not something this hook should be running a tool against.
