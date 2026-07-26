@@ -15,11 +15,12 @@ run_test() {
   local payload_file="$2"
   local event="$3"
   local expected_code="$4"
+  local workdir="${5:-$PWD}"
 
   echo -n "  Testing [$name] ... "
 
   set +e
-  python3 "$ROOT_DIR/scripts/captain_hook.py" dispatch "$event" < "$payload_file" > /dev/null 2>&1
+  ( cd "$workdir" && python3 "$ROOT_DIR/scripts/captain_hook.py" dispatch "$event" < "$payload_file" ) > /dev/null 2>&1
   actual_code=$?
   set -e
 
@@ -89,6 +90,31 @@ run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payload
 run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2
 run_test "Force push on a post event (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "post_run_command" 0
 run_symlink_tests
+
+# Overrides are repo-scoped, so these run inside a throwaway repo with its own
+# .captain-hook.json. The malformed-config case is the important one: a config
+# that will not parse must never turn the guards off.
+run_override_tests() {
+  local tmp key
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+  mkdir -p "$tmp/.git" "$tmp/fixtures"
+  key="AKIAAAAAAAAAAAAAAAAA"
+
+  printf '{"tool_name":"Write","tool_input":{"file_path":"fixtures/a.json","content":"%s"}}' "$key" > "$tmp/p_fixture.json"
+  printf '{"tool_name":"Write","tool_input":{"file_path":"src/a.json","content":"%s"}}' "$key" > "$tmp/p_src.json"
+
+  echo '{"allow_secrets_in": ["fixtures/*.json"]}' > "$tmp/.captain-hook.json"
+  run_test "Secret in allow_secrets_in path (Allow)" "$tmp/p_fixture.json" "PreToolUse" 0 "$tmp"
+  run_test "Secret in unlisted path (Block)"         "$tmp/p_src.json"     "PreToolUse" 2 "$tmp"
+
+  echo '{"ignore_paths": ["fixtures/*"]}' > "$tmp/.captain-hook.json"
+  run_test "Path in ignore_paths (Allow)" "$tmp/p_fixture.json" "PreToolUse" 0 "$tmp"
+
+  echo '{not json' > "$tmp/.captain-hook.json"
+  run_test "Malformed config still guards (Block)" "$tmp/p_src.json" "PreToolUse" 2 "$tmp"
+}
+run_override_tests
 
 echo ""
 echo "🪝 Verifying secret-pattern catalog is in sync..."

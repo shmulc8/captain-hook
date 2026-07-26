@@ -98,3 +98,51 @@ Enforced during `PostWrite`, `afterFileEdit`, `post_write_code`, `PostToolUse`.
 * Both calls are bounded by a 10-second timeout. On timeout or failure the file
   is left unformatted and a warning is written to `stderr`; the hook never fails
   the write because of a formatter.
+
+---
+
+## 5. Overrides (`.captain-hook.json`)
+
+Every guard here has false positives. A repository that legitimately contains
+key-shaped strings — test fixtures, a rotated-key postmortem, documentation
+examples — would otherwise be unmaintainable under its own guard, and the
+usual outcome is that the hook gets uninstalled. That is strictly worse than
+imperfect protection.
+
+Put a `.captain-hook.json` at the repository root. A missing file means no
+overrides. Every key is optional:
+
+| Key | Matches | Effect |
+| :--- | :--- | :--- |
+| `ignore_paths` | glob | Skips **all** guards for matching paths |
+| `allow_secrets_in` | glob | Skips only the secret scan for matching paths |
+| `allow_commands` | **regex** | Exempts matching commands from the denylist |
+
+```json
+{
+  "ignore_paths": ["vendor/**"],
+  "allow_secrets_in": ["tests/fixtures/*.json"],
+  "allow_commands": ["^rm -rf \\./build/?$"]
+}
+```
+
+- Globs are matched against the path **relative to the repository root**, and
+  also against the absolute path.
+- `allow_commands` takes regexes, not globs — deliberately, because commands
+  are matched by regex everywhere else in this script. An invalid regex is
+  reported and ignored rather than crashing the hook.
+- A malformed or unreadable config emits a `Warning:` and is treated as empty.
+  **All guards stay on.** A config parse error must never become a global
+  disable.
+- Every suppression writes a `Note:` line to `stderr` naming the path and the
+  key that allowed it. An override you cannot see is an override that goes
+  stale silently.
+- Overrides only loosen. There is no way to add patterns from config, which
+  keeps it from becoming a second, competing source of truth.
+
+> Every override is a hole in the guard. Prefer the narrowest key that works —
+> `allow_secrets_in` for a fixture directory rather than `ignore_paths` for a
+> whole tree — and review this file the way you would review a firewall rule.
+
+This repository ships its own `.captain-hook.json`, allowlisting only the
+directories whose synthetic key-shaped strings are the point.

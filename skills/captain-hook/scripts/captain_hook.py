@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -165,6 +166,74 @@ def _is_blocking(event_name: str) -> bool:
     return event_name not in POST_EVENTS
 
 
+CONFIG_FILENAME = ".captain-hook.json"
+
+# Config shape (every key optional):
+# {
+#   "ignore_paths":    ["glob", ...],   # skip all guards for matching paths
+#   "allow_secrets_in":["glob", ...],   # skip only the secret scan for these
+#   "allow_commands":  ["regex", ...]   # commands exempt from the denylist
+# }
+# Loosening only, and every suppression announces itself on stderr — an
+# override that nobody can see is the thing this design exists to avoid.
+
+
+def load_config(root: str | None = None) -> dict:
+    """Load .captain-hook.json from the repository root.
+
+    A missing file means no overrides. A malformed file is reported and
+    treated as empty — an unreadable config must never silently disable the
+    guards.
+    """
+    root = root or _repo_root()
+    path = os.path.join(root, CONFIG_FILENAME)
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.stderr.write(
+            f"captain-hook: Warning: could not read {CONFIG_FILENAME} ({exc}) "
+            f"— continuing with all guards enabled\n"
+        )
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _matches_any(path: str, patterns: list) -> bool:
+    """Match a path against glob patterns, relative to the repo root."""
+    if not path or not patterns:
+        return False
+    root = _repo_root()
+    abs_path = os.path.realpath(os.path.abspath(path))
+    try:
+        rel = os.path.relpath(abs_path, root)
+    except ValueError:
+        rel = abs_path
+    return any(
+        fnmatch.fnmatch(rel, p) or fnmatch.fnmatch(abs_path, p)
+        for p in patterns
+        if isinstance(p, str)
+    )
+
+
+def _command_allowed(command: str, patterns: list) -> str | None:
+    """Return the allow_commands pattern exempting `command`, if any."""
+    for raw in patterns:
+        if not isinstance(raw, str):
+            continue
+        try:
+            if re.search(raw, command):
+                return raw
+        except re.error as exc:
+            sys.stderr.write(
+                f"captain-hook: Warning: invalid allow_commands regex {raw!r} "
+                f"in {CONFIG_FILENAME} ({exc}) — ignored\n"
+            )
+    return None
+
+
 # The formatter runs inside a hook on every file write. It must never reach the
 # network and must never outlive the host's own hook timeout (30s Antigravity,
 # 60s Claude Code, unspecified on Windsurf) — so it gets its own, shorter one.
@@ -207,6 +276,21 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
 
     prompt, path, command, tool, server, args = extract_fields(payload)
 
+    # Overrides are loaded once, above the blocking/post split, so the advisory
+    # post-event scan honors them too — otherwise an allowlisted fixture still
+    # warns on every save, which is the noise this exists to remove.
+    config = load_config()
+
+    if _matches_any(path, config.get("ignore_paths", [])):
+        sys.stderr.write(
+            f"captain-hook: Note: all guards skipped for '{path}' by "
+            f"{CONFIG_FILENAME} (ignore_paths)\n"
+        )
+        return 0
+
+    scan_secrets = not _matches_any(path, config.get("allow_secrets_in", []))
+    allowed_commands = config.get("allow_commands", []) or []
+
     if _is_blocking(event_name):
         # 1. Secret Scanning — scan the fields a user controls, not the whole
         # envelope. Scanning raw stdin swept in file contents and diffs, which
@@ -216,6 +300,12 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                 continue
             for pattern, label in SECRET_PATTERNS:
                 if pattern.search(target):
+                    if not scan_secrets:
+                        sys.stderr.write(
+                            f"captain-hook: Note: {label} in '{path}' allowed by "
+                            f"{CONFIG_FILENAME} (allow_secrets_in)\n"
+                        )
+                        break
                     sys.stderr.write(f"captain-hook: Blocked: Secret key pattern detected ({label})\n")
                     return 2
 
@@ -223,6 +313,13 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
         if command:
             for pattern, label in BLOCKED_COMMANDS:
                 if pattern.search(command):
+                    allowed_by = _command_allowed(command, allowed_commands)
+                    if allowed_by:
+                        sys.stderr.write(
+                            f"captain-hook: Note: {label} allowed by "
+                            f"{CONFIG_FILENAME} (allow_commands: {allowed_by})\n"
+                        )
+                        break
                     sys.stderr.write(f"captain-hook: Blocked: {label}\n")
                     return 2
 
@@ -235,7 +332,7 @@ def dispatch_event(event_name: str, stdin_data: str) -> int:
                     f"outside the repository root\n"
                 )
                 return 2
-    else:
+    elif scan_secrets:
         # Post events cannot block; report and continue so the formatter runs.
         for pattern, label in SECRET_PATTERNS:
             if pattern.search(stdin_data):
