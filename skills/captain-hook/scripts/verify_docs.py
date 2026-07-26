@@ -205,6 +205,18 @@ def check_spec_provenance() -> list[str]:
     return failures
 
 
+def check_ci_guide_matches_workflow() -> list[str]:
+    """The CI guide claims to reproduce the workflow exactly; hold it to that."""
+    workflow = REPO_ROOT / ".github" / "workflows" / "verify.yml"
+    guide = SKILL_DIR / "references" / "ci_cd_integration.md"
+    if not workflow.exists():
+        return []
+    blocks = [b.strip() for b in re.findall(r"```yaml\n(.*?)```", read(guide), re.S)]
+    if read(workflow).strip() not in blocks:
+        return [f"{rel(guide)}: the YAML block no longer matches {rel(workflow)}"]
+    return []
+
+
 def check_heading_sequence() -> list[str]:
     """SKILL.md's numbered sections are 1..N with no gaps or duplicates.
 
@@ -261,6 +273,7 @@ CHECKS = [
     ("Relative markdown links resolve", check_relative_links),
     ("Fenced Python blocks compile", check_python_blocks),
     ("Hook commands avoid $PATH and npx", check_hook_command_antipatterns),
+    ("CI guide reproduces the workflow", check_ci_guide_matches_workflow),
 ]
 
 

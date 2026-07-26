@@ -19,6 +19,7 @@ TEST_FAILED=0
 # is on, so a failing `ln -s` (a filesystem without symlink support) aborts
 # mid-function and a RETURN trap never fires.
 CH_TMPDIRS=()
+# shellcheck disable=SC2329  # invoked by the EXIT/INT/TERM trap below, not directly
 cleanup_tmpdirs() { [ ${#CH_TMPDIRS[@]} -eq 0 ] || rm -rf "${CH_TMPDIRS[@]}"; }
 trap cleanup_tmpdirs EXIT INT TERM
 

@@ -40,11 +40,18 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
         python-version: ['3.9', '3.12']
+        # macOS runners bill at a higher multiplier, and the reason this leg
+        # exists is the platform's path semantics (/var vs /private/var), not
+        # its Python versions — one version is enough to catch that.
+        exclude:
+          - os: macos-latest
+            python-version: '3.9'
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +69,6 @@ jobs:
 
   shellcheck:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Shellcheck
@@ -71,5 +77,8 @@ jobs:
 
 The script's mode bit (`100755`) is committed, so no `chmod` step is needed;
 invoking through `bash` works regardless. The workflow installs nothing — the
-suite is bash plus stdlib Python, and the 3.9 leg is there because hook scripts
-run on whatever Python a developer happens to have.
+suite is bash plus stdlib Python. The 3.9 leg is there because hook scripts run
+on whatever Python a developer happens to have; the macOS leg is there because
+every containment guard compares resolved paths, and macOS is the platform
+where `/var` and `/private/var` spell the same directory two ways. It runs one
+Python version, since the platform is what is being tested, not the interpreter.
