@@ -29,13 +29,35 @@ sequenceDiagram
     else Policy Violated
         Hook-->>Host: Prints reason to stderr & Exits with Code 2 (BLOCK)
         Host-->>User: Cancels action & displays stderr error
+    else Hook Crashes (exit 1)
+        Hook-->>Host: Non-zero, non-2 exit
+        Host->>Action: Executes action anyway (fail-open)
     end
 ```
 
-### The Universal Exit Code Protocol
-- **Exit Code `0` (ALLOW)**: The hook approves the operation. Standard output may be logged.
-- **Exit Code `1` (RUNTIME ERROR)**: The hook script crashed. Logged to debug console.
-- **Exit Code `2` (BLOCK / REJECT)**: The hook explicitly **REJECTS** the operation. Output written to `stderr` is fed back into the AI context or shown to the user.
+### Exit Codes: What Actually Blocks
+
+There is no single universal protocol. Three rules hold everywhere, and the
+rest is per-agent:
+
+- **Exit `0`** — allow. Universally true.
+- **Exit `1` and other non-zero codes** — a hook *error*, **not** a block. The
+  host logs it and **proceeds with the action**. An unhandled exception in your
+  hook script exits `1`, which means your guard fails **open**. Catch your
+  exceptions and return `2` deliberately.
+- **Exit `2`** — the block signal on Claude Code, Cursor, and Windsurf — but
+  only for events that are capable of blocking, and only *before* the action
+  runs. Google Antigravity does not use exit codes at all.
+
+| Agent | Exit 2 blocks? | Fail-open on crash? |
+| :--- | :--- | :--- |
+| **Claude Code** | Only on gate events — `PreToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact` among them | Yes — non-2 codes proceed |
+| **Cursor** | Yes, equivalent to `permission: "deny"` | **Yes by default** — set `failClosed: true` per hook to fail closed |
+| **Windsurf** | Only on the five `pre_*` hooks | Yes — other codes proceed |
+| **Antigravity** | **No** — decide via `{"decision": "deny"}` on stdout | See its spec |
+
+The single most common mistake is assuming a `post_*` hook can block. It cannot:
+the action already happened. Post hooks report; they do not gate.
 
 ---
 

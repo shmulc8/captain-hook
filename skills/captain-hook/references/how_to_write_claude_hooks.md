@@ -60,8 +60,14 @@ Claude Code passes event context as JSON over `stdin`:
 
 ## 4. Exit Code Rules & Blocking Contract
 
-- **Exit Code 0**: Allow tool execution.
-- **Exit Code 2 (or non-zero)**: Reject tool execution. Claude Code cancels tool invocation and displays `stderr` to the LLM agent context.
+- **Exit Code 0**: Allow.
+- **Exit Code 2**: Block — but only on `PreToolUse`, `UserPromptSubmit`, `Stop`,
+  `SubagentStop`, and `PreCompact`. On `PostToolUse`, `SessionStart`,
+  `SessionEnd`, and `Notification`, exit 2 does **not** block; `stderr` is just
+  surfaced (to Claude for `PostToolUse`, to the user for the rest).
+- **Exit Code 1 or any other code that is not 0 or 2**: a non-blocking hook
+  error. Claude Code shows a `hook error` notice and **proceeds with the
+  action**. Never rely on a crash to stop anything.
 
 ---
 

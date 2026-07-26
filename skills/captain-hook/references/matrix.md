@@ -19,10 +19,18 @@ This document maps canonical lifecycle events to vendor-native **Executable Hook
 
 ---
 
-## 2. Universal Exit Code Semantics
+## 2. Exit Code Semantics by Agent
 
-| Exit Code | Meaning | Host Agent Behavior |
-| :---: | :--- | :--- |
-| **`0`** | **ALLOW / SUCCESS** | Action proceeds. `stdout` is logged or passed to AI agent context. |
-| **`1`** | **HOOK SCRIPT ERROR** | Script execution crashed. Logged to agent debug console. |
-| **`2`** | **BLOCK / REJECT** | Policy violation. The action is **BLOCKED**. Execution cancels and `stderr` is passed to agent/user. |
+Exit `0` allows, everywhere. Exit `1` — and every other non-zero code that is
+not `2` — is a **non-blocking hook error** on every agent in this table: the
+host surfaces the message and **proceeds with the action**. A hook that raises
+an unhandled exception exits `1` and therefore fails **open**.
+
+Exit `2` is the block signal, but only where the host is still able to act:
+
+| Agent | Exit 2 blocks? | Fail-open on crash? |
+| :--- | :--- | :--- |
+| **Claude Code** | Only on gate events — `PreToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact` among them. Not on `PostToolUse`, `SessionStart`, `SessionEnd`, or `Notification` | Yes — non-2 codes proceed |
+| **Cursor** | Yes, equivalent to `permission: "deny"` | **Yes by default** — set `failClosed: true` per hook to fail closed |
+| **Windsurf** | Only on the five `pre_*` hooks | Yes — other codes proceed |
+| **Antigravity** | **No** — decide via `{"decision": "deny"}` on stdout | See its spec |
