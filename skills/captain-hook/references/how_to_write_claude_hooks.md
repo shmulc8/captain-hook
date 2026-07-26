@@ -16,20 +16,32 @@ Claude Code supports shell script execution hooks defined in `.claude/settings.j
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "command": "python3 .claude/hooks/prompt_filter.py" }
+      { "hooks": [ { "type": "command", "command": "python3 .claude/hooks/prompt_filter.py" } ] }
     ],
     "PreToolUse": [
-      { "command": "python3 .claude/hooks/pre_tool_guard.py" }
+      {
+        "matcher": "Bash",
+        "hooks": [ { "type": "command", "command": "python3 .claude/hooks/pre_tool_guard.py", "timeout": 60 } ]
+      }
     ],
     "PostToolUse": [
-      { "command": "bash .claude/hooks/post_tool.sh" }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [ { "type": "command", "command": "bash .claude/hooks/post_tool.sh" } ]
+      }
     ],
     "Stop": [
-      { "command": "python3 .claude/hooks/on_stop.py" }
+      { "hooks": [ { "type": "command", "command": "python3 .claude/hooks/on_stop.py" } ] }
     ]
   }
 }
 ```
+
+### Schema Parameters
+- `matcher`: regex matching the target tool name (`Bash`, `Edit|Write`, `*`). Only meaningful for `PreToolUse` / `PostToolUse`; omit it for lifecycle events.
+- `type`: must be `"command"`.
+- `command`: the executable script or shell command string.
+- `timeout`: execution timeout in seconds (default 60).
 
 ---
 
@@ -48,8 +60,14 @@ Claude Code passes event context as JSON over `stdin`:
 
 ## 4. Exit Code Rules & Blocking Contract
 
-- **Exit Code 0**: Allow tool execution.
-- **Exit Code 2 (or non-zero)**: Reject tool execution. Claude Code cancels tool invocation and displays `stderr` to the LLM agent context.
+- **Exit Code 0**: Allow.
+- **Exit Code 2**: Block — but only on `PreToolUse`, `UserPromptSubmit`, `Stop`,
+  `SubagentStop`, and `PreCompact`. On `PostToolUse`, `SessionStart`,
+  `SessionEnd`, and `Notification`, exit 2 does **not** block; `stderr` is just
+  surfaced (to Claude for `PostToolUse`, to the user for the rest).
+- **Exit Code 1 or any other code that is not 0 or 2**: a non-blocking hook
+  error. Claude Code shows a `hook error` notice and **proceeds with the
+  action**. Never rely on a crash to stop anything.
 
 ---
 
@@ -60,7 +78,10 @@ Claude Code passes event context as JSON over `stdin`:
 {
   "hooks": {
     "PreToolUse": [
-      { "command": "python3 .claude/hooks/guard.py" }
+      {
+        "matcher": "Bash",
+        "hooks": [ { "type": "command", "command": "python3 .claude/hooks/guard.py" } ]
+      }
     ]
   }
 }

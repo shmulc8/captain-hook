@@ -29,7 +29,7 @@ Cursor AI features a native **Hooks** system that triggers custom scripts during
       { "command": "python3 .cursor/hooks/read_guard.py" }
     ],
     "afterFileEdit": [
-      { "command": "npx prettier --write \"$PATH\"" }
+      { "command": "bash .cursor/hooks/format.sh" }
     ],
     "stop": [
       { "command": "python3 .cursor/hooks/on_stop.py" }
@@ -37,6 +37,23 @@ Cursor AI features a native **Hooks** system that triggers custom scripts during
   }
 }
 ```
+```bash
+#!/usr/bin/env bash
+# .cursor/hooks/format.sh — the edited file's path arrives in the stdin
+# payload, not as a shell variable. `$PATH` is the shell's search path and is
+# never a filename.
+FILE=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('filepath') or d.get('tool_input',{}).get('file_path',''))")
+[ -n "$FILE" ] || exit 0
+# The local binary, never the npm auto-install runner: it downloads an unpinned
+# package from the registry when prettier is absent, which is a network fetch
+# and arbitrary code execution inside a hook that runs on every write.
+[ -x ./node_modules/.bin/prettier ] || exit 0
+./node_modules/.bin/prettier --write "$FILE"
+```
+
+> ⚠️ The edited file's path arrives in the **stdin payload**, not on the
+> command line, and the local binary is used rather than `npx`, which downloads
+> an unpinned package from the npm registry inside a hook.
 
 ---
 
@@ -57,8 +74,18 @@ Cursor passes event context as a JSON string over `stdin`:
 
 ## 4. Exit Code Rules & Blocking Contract
 
-- **Exit Code 0**: Allow. Cursor proceeds with the action.
-- **Exit Code 2 (or non-zero)**: Reject. Cursor **blocks** the action and displays `stderr` in the IDE.
+- **Exit Code 0**: Allow.
+- **Exit Code 2**: Block — equivalent to returning `{"permission": "deny"}` on
+  stdout.
+- **Any other exit code that is not 0 or 2, a timeout, or invalid JSON**: Cursor
+  is **fail-open by default** and the action proceeds. Set `"failClosed": true`
+  on the hook entry to reverse this. `beforeReadFile` in particular logs the
+  failure and allows the read through; `failClosed: true` is required there too.
+- **Alternative to exit codes**: print JSON on stdout —
+  `{"permission": "deny", "user_message": "...", "agent_message": "..."}` for
+  `beforeShellExecution` / `beforeMCPExecution`, `{"permission": "deny", "user_message": "..."}`
+  for `beforeReadFile`, and `{"continue": false, "user_message": "..."}` for
+  `beforeSubmitPrompt`.
 
 ---
 

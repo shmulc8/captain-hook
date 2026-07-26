@@ -11,7 +11,7 @@ Add the following to `.git/hooks/pre-commit` to prevent committing invalid or un
 ```bash
 #!/usr/bin/env bash
 # .git/hooks/pre-commit
-./scripts/verify_hooks.sh
+./skills/captain-hook/scripts/verify_hooks.sh
 if [ $? -ne 0 ]; then
     echo "Pre-commit hook failed! Please resolve policy issues." >&2
     exit 1
@@ -23,28 +23,62 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
-## 2. GitHub Actions CI Workflow (`.github/workflows/verify-hooks.yml`)
+## 2. GitHub Actions CI Workflow (`.github/workflows/verify.yml`)
+
+This repository runs exactly this workflow — see [`.github/workflows/verify.yml`](../../../.github/workflows/verify.yml).
 
 ```yaml
-name: Verify AI Agent Hooks
+name: Verify
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.12']
+        # macOS runners bill at a higher multiplier, and the reason this leg
+        # exists is the platform's path semantics (/var vs /private/var), not
+        # its Python versions — one version is enough to catch that.
+        exclude:
+          - os: macos-latest
+            python-version: '3.9'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Confirm no dependencies are needed
+        run: |
+          python3 -c "import json, re, os, sys, shutil, subprocess, argparse; print('stdlib ok')"
+
+      - name: Run verification suite
+        run: bash skills/captain-hook/scripts/verify_hooks.sh
+
+  shellcheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Run Hook Verification Suite
-        run: |
-          chmod +x scripts/verify_hooks.sh
-          ./scripts/verify_hooks.sh
+      - name: Shellcheck
+        run: shellcheck skills/captain-hook/scripts/*.sh
 ```
+
+The script's mode bit (`100755`) is committed, so no `chmod` step is needed;
+invoking through `bash` works regardless. The workflow installs nothing — the
+suite is bash plus stdlib Python. The 3.9 leg is there because hook scripts run
+on whatever Python a developer happens to have; the macOS leg is there because
+every containment guard compares resolved paths, and macOS is the platform
+where `/var` and `/private/var` spell the same directory two ways. It runs one
+Python version, since the platform is what is being tested, not the interpreter.

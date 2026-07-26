@@ -1,0 +1,11 @@
+{
+  "ignore_paths": [
+    "vendor/**"
+  ],
+  "allow_secrets_in": [
+    "tests/fixtures/*.json"
+  ],
+  "allow_commands": [
+    "^rm -rf ~/\\.cache/myapp/?$"
+  ]
+}

@@ -1,0 +1,45 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.12']
+        # macOS runners bill at a higher multiplier, and the reason this leg
+        # exists is the platform's path semantics (/var vs /private/var), not
+        # its Python versions — one version is enough to catch that.
+        exclude:
+          - os: macos-latest
+            python-version: '3.9'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Confirm no dependencies are needed
+        run: |
+          python3 -c "import json, re, os, sys, shutil, subprocess, argparse; print('stdlib ok')"
+
+      - name: Run verification suite
+        run: bash skills/captain-hook/scripts/verify_hooks.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shellcheck
+        run: shellcheck skills/captain-hook/scripts/*.sh

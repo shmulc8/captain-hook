@@ -1,5 +1,7 @@
 # Exhaustive Claude Code Hooks Specification
 
+> Source: https://code.claude.com/docs/en/hooks — verified 2026-07-26
+
 ## 1. Overview & Architecture
 
 Claude Code (Anthropic's CLI agent) supports user-defined hooks configured inside `settings.json`. Hooks execute automatically at session lifecycle points and before/after tool calls, receiving JSON payloads on standard input (`stdin`).
@@ -58,7 +60,7 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
         "hooks": [
           {
             "type": "command",
-            "command": "npx prettier --write \"$PATH\""
+            "command": "bash .claude/hooks/format.sh"
           }
         ]
       }
@@ -66,6 +68,10 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
   }
 }
 ```
+The edited file's path arrives in the stdin payload — see section 4 — not on
+the command line. The formatter script also resolves the local binary rather
+than `npx`, which downloads an unpinned package from the npm registry inside a
+hook that runs on every write.
 
 ### Schema Parameters:
 - `matcher`: Regex string matching the target tool name (e.g. `Bash`, `Edit|Write`, `Glob`, `Grep`).
@@ -129,8 +135,21 @@ Claude Code (Anthropic's CLI agent) supports user-defined hooks configured insid
 ## 5. Exit Code Semantics
 
 * **Exit Code `0`**: Success. The action proceeds.
-* **Exit Code `2`**: **BLOCK / REJECT**. Claude Code blocks tool execution and feeds `stderr` back to the agent LLM context.
-* **Exit Code `1` (or other non-zero)**: Non-blocking error. Logged to console.
+* **Exit Code `2`**: blocks only on events that are still able to gate the action:
+
+  | Event | Can exit 2 block? | Effect of exit 2 |
+  | :--- | :--- | :--- |
+  | `PreToolUse` | Yes | Blocks the tool call |
+  | `PostToolUse` | **No** | Shows `stderr` to Claude; the tool already ran |
+  | `UserPromptSubmit` | Yes | Blocks prompt processing and erases the prompt |
+  | `Stop` | Yes | Prevents Claude from stopping |
+  | `SubagentStop` | Yes | Prevents the subagent from stopping |
+  | `PreCompact` | Yes | Blocks compaction |
+  | `SessionStart` | **No** | Shows `stderr` to the user only |
+  | `SessionEnd` | **No** | Shows `stderr` to the user only |
+  | `Notification` | **No** | Shows `stderr` to the user only |
+
+* **Exit Code `1` and every other code that is not 0 or 2**: a **non-blocking error**. A `<hook name> hook error` notice appears with the first `stderr` line, execution continues, and JSON output is ignored. A hook that raises an unhandled exception exits `1` and therefore fails **open**. (Sole exception: `WorktreeCreate`, where any non-zero code aborts.)
 
 ---
 

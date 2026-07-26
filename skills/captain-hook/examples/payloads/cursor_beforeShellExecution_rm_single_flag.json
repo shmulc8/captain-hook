@@ -1,0 +1,5 @@
+{
+  "command": "rm -f ~/.ssh/id_rsa",
+  "cwd": "/Users/developer/project",
+  "conversation_id": "conv_444001"
+}

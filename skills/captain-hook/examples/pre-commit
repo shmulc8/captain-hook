@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# captain-hook git pre-commit gate.
+#
+# Install:
+#   cp skills/captain-hook/examples/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#   # then replace <CAPTAIN_HOOK> below with the absolute path, e.g.
+#   #   python3 /abs/path/to/skills/captain-hook/scripts/captain_hook.py
+#
+# This is the fallback gate for every agent that cannot block on its own. It
+# reads the STAGED diff, not your working tree: it catches what reaches a
+# commit, not what the agent writes while you work.
+set -euo pipefail
+
+<CAPTAIN_HOOK> dispatch PreCommit </dev/null
