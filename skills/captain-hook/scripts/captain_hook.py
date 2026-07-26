@@ -8,8 +8,6 @@ import functools
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 
 VERSION = "1.0.0"
@@ -482,7 +480,15 @@ def _local_node_bin(name: str, root: str, start: str) -> str | None:
 
 
 def _run_formatter(argv: list[str], path: str) -> None:
-    """Best-effort format. Never raises, never blocks the caller's decision."""
+    """Best-effort format. Never raises, never blocks the caller's decision.
+
+    `subprocess` is imported here rather than at module level: this script is
+    spawned per hook event, and the formatter runs on four post-write events
+    out of the ~30 this dispatcher handles. Importing it on every PrePrompt and
+    PreCommand costs several milliseconds of startup that no pre-event can use.
+    """
+    import subprocess
+
     try:
         subprocess.run(argv, capture_output=True, timeout=FORMAT_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
@@ -508,6 +514,10 @@ def _staged(root: str) -> tuple[str, list[str]]:
     Failure here must not block: a hook that aborts every commit because git
     was unavailable gets deleted, and a deleted hook protects nothing.
     """
+    # Same reason as _run_formatter: deferred so the ~30 events that never
+    # reach a commit hook do not pay for it.
+    import subprocess
+
     def run(args: list[str]) -> str:
         try:
             result = subprocess.run(
@@ -652,6 +662,11 @@ def dispatch_event(event_name: str, stdin_data: str, argv_paths: list[str] | Non
         and os.path.exists(path)
         and not escapes_repo(path, root, base)[0]
     ):
+        # Imported here, not at module level: see _run_formatter. Python caches
+        # modules after first import, so the repeated statement costs nothing
+        # on the path that does reach it.
+        import shutil
+
         start = os.path.dirname(os.path.abspath(path))
         if path.endswith((".js", ".ts", ".jsx", ".tsx", ".json")):
             # Resolve the prettier binary itself. Deliberately not launched via
