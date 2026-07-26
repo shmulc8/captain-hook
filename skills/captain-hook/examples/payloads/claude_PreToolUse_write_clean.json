@@ -1,0 +1,8 @@
+{
+  "session_id": "s1",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "README.md",
+    "content": "hello"
+  }
+}

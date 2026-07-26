@@ -246,7 +246,7 @@ Read the reference guides for full copy-pasteable script implementations:
 
 `captain-hook` includes automated testing and governance tools for production readiness before going public:
 
-- 🧪 **Automated Verification Suite (`./scripts/verify_hooks.sh`)**: Test your project's hook scripts locally against sample `stdin` payloads before deploying.
+- 🧪 **Automated Verification Suite (`scripts/verify_hooks.sh`)**: Runs the bundled reference dispatcher against sample `stdin` payloads and lints the shipped documentation and config templates for schema drift. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly (see [`references/debugging.md`](references/debugging.md)).
 - 📂 **Sample Payloads (`examples/payloads/`)**: Real-world JSON stdin payload files for testing `beforeShellExecution`, `PreToolUse`, and `pre_write_code`.
 - 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, command sandboxing, symlink guard, MCP governance).
 - 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.

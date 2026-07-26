@@ -22,11 +22,21 @@ echo $?  # Outputs: 2
 
 ## 2. Running the Automated Verification Suite
 
-Run the included verification suite to validate your project's hook policies:
+The suite verifies *this skill* — the bundled dispatcher, the shipped config
+templates, and the documentation. It does not test your own hook scripts; for
+that, pipe a fixture into them as shown in section 1.
+
+Two scripts, both run by the first. Paths are relative to the repository root:
 
 ```bash
-./scripts/verify_hooks.sh
+# Behavioral cases against the bundled dispatcher, then the documentation gates
+bash skills/captain-hook/scripts/verify_hooks.sh
+
+# The documentation gates alone (JSON/Python blocks, schema drift, dead links)
+python3 skills/captain-hook/scripts/verify_docs.py
 ```
+
+`npm test` runs the same suite.
 
 ---
 
