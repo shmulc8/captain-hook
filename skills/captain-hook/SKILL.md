@@ -268,7 +268,7 @@ Read the reference guides for full copy-pasteable script implementations:
 - 🦘 **[Roo Code & Cline Specification](references/specs/roo_cline.md)** — `.clinerules`, `.roomodes`, and custom mode tools.
 - 👐 **[OpenHands & Devin Specification](references/specs/openhands_devin.md)** — `config.toml` action interceptors and observation listeners.
 - 🐙 **[GitHub Copilot Specification](references/specs/copilot.md)** — `.github/copilot-instructions.md` and pre-commit git hooks.
-- 🅰️ **[Amazon Q Specification](references/specs/amazon_q.md)** — `.amazonq/rules` and CLI customization hooks.
+- 🅰️ **[Amazon Q Project Rules](references/specs/amazon_q.md)** — `.amazonq/rules/*.md` Markdown context files. **No executable hooks and no blocking contract** — advisory only.
 
 ---
 

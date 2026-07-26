@@ -34,6 +34,8 @@ FLAT_HOOK_RE = re.compile(
 PHANTOM_SYMBOLS = ("BasePolicy", "PolicyResult", "CanonicalEvent", "BaseAgentAdapter", "HookPayload")
 CONTAMINATION = ("captain-obvious", "co_py", "co_ts")
 EXIT_CODE_FICTION = "or non-zero"
+# Amazon Q project rules are Markdown context files; this YAML schema was invented.
+INVENTED_AMAZON_Q_SCHEMA = ('before_command', 'action: "block"')
 
 
 def markdown_files() -> list[pathlib.Path]:
@@ -103,6 +105,11 @@ def check_contamination() -> list[str]:
     return _substring_gate(CONTAMINATION, "belongs to another project")
 
 
+def check_amazon_q_schema() -> list[str]:
+    """Amazon Q has no event/action model (Plan 008)."""
+    return _substring_gate(INVENTED_AMAZON_Q_SCHEMA, "Amazon Q rules have no event or action fields")
+
+
 def _substring_gate(needles: tuple[str, ...], why: str) -> list[str]:
     failures = []
     for path in text_files():
@@ -152,6 +159,7 @@ CHECKS = [
     ("No phantom plugin-API symbols", check_phantom_symbols),
     ("No 'or non-zero blocks' exit-code claim", check_exit_code_fiction),
     ("No cross-project contamination", check_contamination),
+    ("No invented Amazon Q blocking schema", check_amazon_q_schema),
     ("Relative markdown links resolve", check_relative_links),
     ("Fenced Python blocks compile", check_python_blocks),
 ]

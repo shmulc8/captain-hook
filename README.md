@@ -63,7 +63,7 @@ cd captain-hook
 | **Roo Code / Cline** | `.clinerules` | [Roo Code Spec](skills/captain-hook/references/specs/roo_cline.md) |
 | **OpenHands / Devin** | `config.toml` | [OpenHands Spec](skills/captain-hook/references/specs/openhands_devin.md) |
 | **GitHub Copilot** | `.github/copilot-instructions.md` | [Copilot Spec](skills/captain-hook/references/specs/copilot.md) |
-| **Amazon Q** | `.amazonq/rules` | [Amazon Q Spec](skills/captain-hook/references/specs/amazon_q.md) |
+| **Amazon Q** | `.amazonq/rules/*.md` | [Amazon Q Project Rules (advisory)](skills/captain-hook/references/specs/amazon_q.md) |
 
 ---
 
