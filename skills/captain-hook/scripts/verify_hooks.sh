@@ -6,6 +6,11 @@ echo "🪝 Verifying Captain Hook Policy Script Execution..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+# The repository root, two levels above skills/captain-hook. Tests must not
+# depend on where the suite was invoked from: with $PWD as the default, running
+# this script from outside the repo made _repo_root() resolve to the caller's
+# directory and turned in-repo cases into false "blocked" failures.
+REPO_DIR="$(dirname "$(dirname "$ROOT_DIR")")"
 
 TEST_PASSED=0
 TEST_FAILED=0
@@ -15,7 +20,7 @@ run_test() {
   local payload_file="$2"
   local event="$3"
   local expected_code="$4"
-  local workdir="${5:-$PWD}"
+  local workdir="${5:-$REPO_DIR}"
   local expect_err="${6:-}"
 
   echo -n "  Testing [$name] ... "
@@ -94,19 +99,24 @@ run_symlink_tests() {
   run_test "New file via symlinked dir (Block)"  "$tmp/p_newvialink.json" "PreToolUse" 2
 }
 
+# The default-workdir cases below do not depend on the repository's own
+# .captain-hook.json — verified by running the suite with it moved aside.
+# If you add a case that does, give it its own fixture repository instead,
+# the way run_override_tests does.
+
 # Run tests
 run_test "Clean Command (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_clean.json" "beforeShellExecution" 0
-run_test "AWS Key Secret (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_secret.json" "beforeShellExecution" 2 "$PWD" "Secret key pattern detected"
-run_test "Git Force Push (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "PreToolUse" 2 "$PWD" "Blocked: force push"
+run_test "AWS Key Secret (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_secret.json" "beforeShellExecution" 2 "$REPO_DIR" "Secret key pattern detected"
+run_test "Git Force Push (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "PreToolUse" 2 "$REPO_DIR" "Blocked: force push"
 run_test "Clean Write (Allow)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_write_clean.json" "PreToolUse" 0
 run_test "MCP Call (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeMCPExecution_clean.json" "beforeMCPExecution" 0
 run_test "Empty Payload (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreToolUse" 0
 run_test "Non-JSON stdin (Allow)" "$ROOT_DIR/examples/payloads/malformed.txt" "PreToolUse" 0
 run_test "Windsurf tool_info Force Push (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_force_push.json" "pre_run_command" 2
-run_test "Windsurf tool_info secret (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "pre_run_command" 2 "$PWD" "Secret key pattern detected"
+run_test "Windsurf tool_info secret (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "pre_run_command" 2 "$REPO_DIR" "Secret key pattern detected"
 # Non-JSON stdin becomes {"raw": ...}; that chain is the ONLY route by which a
 # secret in plain-text stdin is ever scanned.
-run_test "Secret in non-JSON stdin (Block)" "$ROOT_DIR/examples/payloads/malformed_secret.txt" "PreToolUse" 2 "$PWD" "Secret key pattern detected"
+run_test "Secret in non-JSON stdin (Block)" "$ROOT_DIR/examples/payloads/malformed_secret.txt" "PreToolUse" 2 "$REPO_DIR" "Secret key pattern detected"
 run_test "Windsurf tool_info Clean (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_clean.json" "pre_run_command" 0
 # Antigravity nests tool fields under a camelCase `toolCall`. Before this was
 # handled the dispatcher read "" for every field and allowed everything, on the
@@ -139,7 +149,7 @@ run_test "rm through a variable — KNOWN GAP (Allow)" "$ROOT_DIR/examples/paylo
 # Exit 2 on Claude Code's PostToolUse does not block — the write already
 # happened — it is the only exit code that shows stderr to the model, which is
 # the point: the agent that just wrote the key gets told about it.
-run_test "Key in written content, post event (Warn via 2)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PostToolUse" 2 "$PWD" "cannot be blocked"
+run_test "Key in written content, post event (Warn via 2)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PostToolUse" 2 "$REPO_DIR" "cannot be blocked"
 run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PreToolUse" 2
 run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2
 run_test "Force push on a post event (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_force_push.json" "post_run_command" 0
@@ -455,6 +465,25 @@ doc_status=$?
 set -e
 if [ "$doc_status" -ne 0 ]; then
   TEST_FAILED=$((TEST_FAILED + 1))
+fi
+
+# A suite whose result depends on where it was invoked from has an ambiguous
+# red, and an ambiguous red gets ignored. The environment variable stops the
+# inner run from invoking a third one.
+if [ -z "${CAPTAIN_HOOK_SELFTEST:-}" ]; then
+  echo ""
+  echo -n "  Testing [Suite is independent of the caller's directory] ... "
+  set +e
+  ( cd / && CAPTAIN_HOOK_SELFTEST=1 bash "$SCRIPT_DIR/verify_hooks.sh" >/dev/null 2>&1 )
+  selftest_status=$?
+  set -e
+  if [ "$selftest_status" -eq 0 ]; then
+    echo "✓ PASSED"
+    TEST_PASSED=$((TEST_PASSED + 1))
+  else
+    echo "❌ FAILED (the suite does not pass when run from /)"
+    TEST_FAILED=$((TEST_FAILED + 1))
+  fi
 fi
 
 echo ""
