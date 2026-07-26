@@ -9,13 +9,18 @@ This document details the built-in policy rules enforced by `captain-hook`.
 Enforced during `PrePrompt`, `PreCommand`, `PreToolUse`, `pre_user_prompt`.
 
 ### Blocked Regex Patterns:
-* **AWS Access Key ID**: `\bAKIA[0-9A-Z]{16}\b`
-* **GitHub Personal Access Token**: `ghp_[0-9a-zA-Z]{36}`
-* **GitHub OAuth Access Token**: `gho_[0-9a-zA-Z]{36}`
-* **GitLab Access Token**: `glpat-[0-9a-zA-Z\-]{20}`
-* **OpenAI API Key**: `sk-[a-zA-Z0-9]{48}`
-* **Anthropic API Key**: `sk-ant-[a-zA-Z0-9\-]{40,}`
-* **Private Key Headers**: `-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----`
+
+Generated from `SECRET_PATTERNS` in `scripts/captain_hook.py` — edit there, then run `python3 scripts/sync_patterns.py`.
+
+<!-- BEGIN:SECRET_PATTERNS -->
+* **AWS Access Key**: `\bAKIA[0-9A-Z]{16}\b`
+* **GitHub Personal Access Token**: `(?i)ghp_[0-9a-zA-Z]{36}`
+* **GitHub OAuth Access Token**: `(?i)gho_[0-9a-zA-Z]{36}`
+* **GitLab Personal Access Token**: `(?i)glpat-[0-9a-zA-Z\-]{20}`
+* **Private Key**: `-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----`
+* **OpenAI API Key**: `(?i)\bsk-(?!ant-)(proj-|svcacct-|admin-)?[a-zA-Z0-9_]{20,}[a-zA-Z0-9_\-]{12,}`
+* **Anthropic API Key**: `(?i)sk-ant-[a-zA-Z0-9\-]{40,}`
+<!-- END:SECRET_PATTERNS -->
 
 ---
 

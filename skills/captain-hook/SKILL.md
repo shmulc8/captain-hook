@@ -289,6 +289,12 @@ SECRET_PATTERNS = [
 ]
 ```
 
+`SECRET_PATTERNS` is the single source of truth; the copies in
+`references/guards.md`, `references/security_rules.md`, and
+`references/recipes.md` are generated from it. After editing the list, run
+`python3 scripts/sync_patterns.py`. The verification suite runs
+`sync_patterns.py --check` and fails if you skip that step.
+
 ### Adding a blocked command
 
 Append a compiled regex to `BLOCKED_COMMANDS`:

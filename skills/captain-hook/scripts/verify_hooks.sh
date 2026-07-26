@@ -59,7 +59,21 @@ run_test "Empty Payload (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreTo
 run_test "Non-JSON stdin (Allow)" "$ROOT_DIR/examples/payloads/malformed.txt" "PreToolUse" 0
 run_test "Windsurf tool_info Force Push (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "pre_run_command" 2
 run_test "Windsurf tool_info Clean (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_clean.json" "pre_run_command" 0
+run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_gitlab_token.json" "beforeSubmitPrompt" 2
+run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
+run_test "Prose containing 'ask-' (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_clean_prose.json" "beforeSubmitPrompt" 0
+run_test "Kebab-case sk- identifier (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_kebab_case.json" "beforeSubmitPrompt" 0
 run_symlink_tests
+
+echo ""
+echo "🪝 Verifying secret-pattern catalog is in sync..."
+set +e
+python3 "$SCRIPT_DIR/sync_patterns.py" --check
+sync_status=$?
+set -e
+if [ "$sync_status" -ne 0 ]; then
+  TEST_FAILED=$((TEST_FAILED + 1))
+fi
 
 echo ""
 echo "🪝 Verifying documentation consistency..."

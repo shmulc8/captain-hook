@@ -14,11 +14,15 @@ Interceptors prompts or file edits containing API keys, AWS credentials, or SSH 
 import sys, json, re
 
 SECRET_PATTERNS = [
+    # BEGIN:SECRET_PATTERNS
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AWS Access Key"),
     (re.compile(r"(?i)ghp_[0-9a-zA-Z]{36}"), "GitHub Personal Access Token"),
-    (re.compile(r"(?i)sk-[a-zA-Z0-9]{48}"), "OpenAI API Key"),
-    (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
+    (re.compile(r"(?i)gho_[0-9a-zA-Z]{36}"), "GitHub OAuth Access Token"),
+    (re.compile(r"(?i)glpat-[0-9a-zA-Z\-]{20}"), "GitLab Personal Access Token"),
     (re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----"), "Private Key"),
+    (re.compile(r"(?i)\bsk-(?!ant-)(proj-|svcacct-|admin-)?[a-zA-Z0-9_]{20,}[a-zA-Z0-9_\-]{12,}"), "OpenAI API Key"),
+    (re.compile(r"(?i)sk-ant-[a-zA-Z0-9\-]{40,}"), "Anthropic API Key"),
+    # END:SECRET_PATTERNS
 ]
 
 def main():
