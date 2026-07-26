@@ -40,12 +40,26 @@ BLOCKED_COMMANDS = [
     # rm carrying -r, -R, or -f in any flag arrangement, targeting a root-ish
     # path. One destructive flag is enough: `rm -f ~/.ssh/id_rsa` and
     # `rm -r /` each destroy something irreplaceable without the pair.
-    (re.compile(r"\brm\s+(-\w+\s+)*-\w*[rRf]\w*\s+(-\w+\s+)*['\"]?[/~*]"),
+    # The flag group accepts long flags and the `--` end-of-options separator:
+    # `\w` excludes `-`, so `rm -rf -- /` and `rm --recursive --force /` used to
+    # terminate the match before the target was ever examined. A flag token is
+    # `--?[\w][\w-]*`, not `--?[\w-]+`: letting the body match a leading `-`
+    # makes the dash count ambiguous, and 40 such tokens then backtrack
+    # exponentially — a hang in a guard that runs on every command.
+    (re.compile(r"\brm\s+(?:--?[\w][\w-]*\s+|--\s+)*-{1,2}\w*[rRf]\w*\s+(?:--?[\w][\w-]*\s+|--\s+)*['\"]?[/~*]"),
      "recursive or forced delete of a root path"),
-    (re.compile(r"\b(mkfs|dd\s+if=)\b"), "raw disk write or filesystem format"),
+    # `dd if=` cannot carry a trailing \b: the alternative ends in `=` and a
+    # real target starts with `/`, both non-word, so no boundary exists there.
+    # With one, this fired on `dd if=foo` and never on `dd if=/dev/sda`.
+    (re.compile(r"\bmkfs\b|\bdd\s+if="), "raw disk write or filesystem format"),
     # --force-with-lease is the safe form; blocking it pushes people to --force.
-    (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "force push"),
-    (re.compile(r"\bchmod\s+-R\s+777\b"), "recursive world-writable permissions"),
+    # `-f` is the spelling models emit most often and was uncovered.
+    (re.compile(r"\bgit\s+push\s+(?:.*\s)?(?:--force(?!-with-lease)|-f)\b"), "force push"),
+    # Order-insensitive: `chmod 777 -R /` is the same command as `chmod -R 777`.
+    # Symbolic modes granting write to others count too — `a+rwx` and `o+w` are
+    # 777 by another name.
+    (re.compile(r"\bchmod\s+(?:-R\s+(?:777|[ugoa]*\+\w*w\w*)|(?:777|[ugoa]*\+\w*w\w*)\s+-R)\b"),
+     "recursive world-writable permissions"),
     (re.compile(r"\bchown\s+-R\s+root\b"), "recursive ownership change to root"),
 ]
 

@@ -90,6 +90,12 @@ run_test "Kebab-case sk- identifier (Allow)" "$ROOT_DIR/examples/payloads/cursor
 run_test "rm with split flags (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_split_flags.json" "beforeShellExecution" 2
 # One destructive flag is enough — `rm -f ~/.ssh/id_rsa` needs no -r to matter.
 run_test "rm with a single flag (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_single_flag.json" "beforeShellExecution" 2
+# Four literal forms that needed no shell syntax to get past the denylist. The
+# documented ceiling is shell syntax; these were plain commands.
+run_test "dd against a real device (Block)"   "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_dd_device.json"       "beforeShellExecution" 2
+run_test "rm with an -- separator (Block)"    "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_dashdash.json"    "beforeShellExecution" 2
+run_test "force push, short flag (Block)"     "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_push_short_flag.json" "beforeShellExecution" 2
+run_test "chmod with reordered args (Block)"  "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_chmod_reordered.json" "beforeShellExecution" 2
 # A non-string field used to raise, and an exception exits 1, which blocks nowhere.
 run_test "argv-array command (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash_argv_array.json" "PreToolUse" 2
 run_test "Force push with lease (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_force_with_lease.json" "beforeShellExecution" 0

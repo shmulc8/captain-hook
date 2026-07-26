@@ -39,10 +39,11 @@ Enforced during `PreCommand`, `beforeShellExecution`, `pre_run_command`, `PreToo
 
 ### Blocked Command Patterns:
 * `rm` carrying `-r`, `-R`, or `-f` against `/`, `~`, or `*` — one flag is
-  enough, since `rm -f ~/.ssh/id_rsa` needs no `-r` to be irreversible
-* `mkfs` or `dd if=`
-* `git push --force`
-* `chmod -R 777`
+  enough, since `rm -f ~/.ssh/id_rsa` needs no `-r` to be irreversible. Long
+  flags and a `--` separator are covered.
+* `mkfs`, or `dd if=` against any target
+* `git push --force` or `git push -f` — but **not** `--force-with-lease`
+* `chmod` making a tree world-writable, in either argument order, octal or symbolic
 * `chown -R root`
 
 ### Known limits — read before relying on this
@@ -53,12 +54,21 @@ parse shell syntax, so it is bypassed by ordinary constructs:
 | Command | Blocked? |
 | :--- | :---: |
 | `rm -rf /` | yes |
-| `rm -r -f /` | yes (split flags, since the v1.1 tightening) |
-| `rm -rf "/"` | yes (quoted target, same change) |
-| `rm -f ~/.ssh/id_rsa` | yes (a single destructive flag counts) |
+| `rm -r -f /` | yes — split flags |
+| `rm -rf "/"` | yes — quoted target |
+| `rm -f ~/.ssh/id_rsa` | yes — a single destructive flag counts |
+| `rm -rf -- /` | yes — `--` end-of-options separator |
+| `rm --recursive --force /` | yes — long flags |
+| `git push -f origin main` | yes — short flag |
+| `git push --force-with-lease` | **no, deliberately** — the safe form |
+| `chmod 777 -R /` | yes — order-insensitive |
+| `chmod -R a+rwx /` | yes — symbolic modes granting write |
+| `dd if=/dev/zero of=/dev/sda` | yes |
 | `rm -rf $HOME` | no — variable expansion |
 | `cd / && rm -rf .` | no — relative target |
 | `$(echo rm) -rf /` | no — command substitution |
+| `sudo rm -rf /` prefixed by any wrapper | no — only the literal command text is matched |
+| `curl … \| sh` | no — not on the list at all; the denylist is five rules, not a policy engine |
 
 It stops the accident — a model emitting a literal destructive command — which
 is the common case and worth stopping. It does not stop an adversary, and it is
