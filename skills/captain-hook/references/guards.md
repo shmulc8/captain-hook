@@ -164,6 +164,10 @@ reads as protection that was never there.
   directory, not the subtree under it; write `tests/fixtures/**` when a whole
   subtree is what you mean. An override that reads as one directory must not
   silently cover everything beneath it.
+- `**/` matches whole directory components, as in `.gitignore`.
+  `**/fixtures/*.json` covers `fixtures/a.json` and `deep/fixtures/a.json`, and
+  does **not** cover `myfixtures/a.json` — a directory whose name merely ends
+  the same way is a different directory.
 - `allow_commands` takes regexes, not globs — deliberately, because commands
   are matched by regex everywhere else in this script. An invalid regex is
   reported and ignored rather than crashing the hook.

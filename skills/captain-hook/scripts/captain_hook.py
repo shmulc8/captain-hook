@@ -370,10 +370,19 @@ def _glob_re(pattern: str) -> re.Pattern:
         char = pattern[i]
         if char == "*":
             if pattern[i + 1:i + 2] == "*":
-                out.append(".*")
                 i += 2
                 if pattern[i:i + 1] == "/":
-                    i += 1  # `**/x` also matches `x` at the top level
+                    i += 1
+                    # `(?:.*/)?`, not `.*`: `**/` must match whole directory
+                    # components, so `**/node_modules` covers `src/node_modules`
+                    # and the top-level `node_modules` — but NOT
+                    # `src/my_node_modules`, which is a different directory
+                    # whose name merely ends the same way. Dropping the
+                    # separator here reintroduced exactly the silent widening
+                    # the `*` branch below exists to prevent.
+                    out.append("(?:.*/)?")
+                else:
+                    out.append(".*")
                 continue
             out.append("[^/]*")
         elif char == "?":

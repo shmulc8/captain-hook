@@ -137,6 +137,16 @@ run_override_tests() {
   echo '{"allow_secrets_in": ["fixtures/**"]}' > "$tmp/.captain-hook.json"
   run_test "Secret under an explicit ** glob (Allow)" "$tmp/p_deep.json" "PreToolUse" 0 "$tmp"
 
+  # `**/` matches whole directory components. Dropping the separator made
+  # `**/fixtures` also cover `src/myfixtures` — an exemption wider than it
+  # reads, in the one file that is supposed to be reviewed like a firewall rule.
+  mkdir -p "$tmp/myfixtures"
+  printf '{"tool_name":"Write","tool_input":{"file_path":"myfixtures/a.json","content":"%s"}}' "$key" > "$tmp/p_lookalike.json"
+  printf '{"tool_name":"Write","tool_input":{"file_path":"deep/fixtures/a.json","content":"%s"}}' "$key" > "$tmp/p_nested_dir.json"
+  echo '{"allow_secrets_in": ["**/fixtures/*.json"]}' > "$tmp/.captain-hook.json"
+  run_test "Look-alike directory is not exempt (Block)" "$tmp/p_lookalike.json"  "PreToolUse" 2 "$tmp"
+  run_test "Nested directory is exempt (Allow)"         "$tmp/p_nested_dir.json" "PreToolUse" 0 "$tmp"
+
   echo '{"ignore_paths": ["fixtures/*"]}' > "$tmp/.captain-hook.json"
   run_test "Path in ignore_paths (Allow)" "$tmp/p_fixture.json" "PreToolUse" 0 "$tmp"
 
