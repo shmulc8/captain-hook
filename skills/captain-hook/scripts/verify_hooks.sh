@@ -129,7 +129,7 @@ run_test "Clean Write (Allow)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_wr
 run_test "MCP Call (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeMCPExecution_clean.json" "beforeMCPExecution" 0
 run_test "Empty Payload (Allow)" "$ROOT_DIR/examples/payloads/empty.json" "PreToolUse" 0
 run_test "Non-JSON stdin (Allow)" "$ROOT_DIR/examples/payloads/malformed.txt" "PreToolUse" 0
-run_test "Windsurf tool_info Force Push (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_force_push.json" "pre_run_command" 2
+run_test "Windsurf tool_info Force Push (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_force_push.json" "pre_run_command" 2 "$REPO_DIR" "Blocked: force push"
 run_test "Windsurf tool_info secret (Block)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_secret.json" "pre_run_command" 2 "$REPO_DIR" "Secret key pattern detected"
 # Non-JSON stdin becomes {"raw": ...}; that chain is the ONLY route by which a
 # secret in plain-text stdin is ever scanned.
@@ -138,30 +138,30 @@ run_test "Windsurf tool_info Clean (Allow)" "$ROOT_DIR/examples/payloads/windsur
 # Antigravity nests tool fields under a camelCase `toolCall`. Before this was
 # handled the dispatcher read "" for every field and allowed everything, on the
 # one agent that has no exit-code contract to make the failure visible.
-run_test "Antigravity toolCall force push (Block)" "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_run_command.json" "PreCommand" 2
+run_test "Antigravity toolCall force push (Block)" "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_run_command.json" "PreCommand" 2 "$REPO_DIR" "Blocked: force push"
 run_test "Antigravity toolCall clean (Allow)"      "$ROOT_DIR/examples/payloads/antigravity_PreToolUse_clean.json"       "PreCommand" 0
 # OpenHands is in the blocking roster; its snake_case config keys must reach the
 # same guards as every other agent's, and its post events must not pretend to block.
-run_test "OpenHands pre_tool_use denylist (Block)" "$ROOT_DIR/examples/payloads/openhands_pre_tool_use_bash.json" "pre_tool_use"  2
+run_test "OpenHands pre_tool_use denylist (Block)" "$ROOT_DIR/examples/payloads/openhands_pre_tool_use_bash.json" "pre_tool_use"  2 "$REPO_DIR" "Blocked: recursive or forced delete of a root path"
 run_test "OpenHands post_tool_use cannot block (Allow)" "$ROOT_DIR/examples/payloads/openhands_pre_tool_use_bash.json" "post_tool_use" 0
-run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_gitlab_token.json" "beforeSubmitPrompt" 2
-run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2
+run_test "GitLab Token (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_gitlab_token.json" "beforeSubmitPrompt" 2 "$REPO_DIR" "Blocked: Secret key pattern detected (GitLab Personal Access Token)"
+run_test "OpenAI sk-proj Key (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj.json" "beforeSubmitPrompt" 2 "$REPO_DIR" "Blocked: Secret key pattern detected (OpenAI API Key)"
 # Real sk-proj- keys carry hyphens inside the body. A pattern that only accepts
 # an unbroken alphanumeric run passes the fixture above and misses every actual key.
-run_test "OpenAI sk-proj Key with hyphens (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj_hyphens.json" "beforeSubmitPrompt" 2
+run_test "OpenAI sk-proj Key with hyphens (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_openai_proj_hyphens.json" "beforeSubmitPrompt" 2 "$REPO_DIR" "Blocked: Secret key pattern detected (OpenAI API Key)"
 run_test "Prose containing 'ask-' (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_clean_prose.json" "beforeSubmitPrompt" 0
 run_test "Kebab-case sk- identifier (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeSubmitPrompt_kebab_case.json" "beforeSubmitPrompt" 0
-run_test "rm with split flags (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_split_flags.json" "beforeShellExecution" 2
+run_test "rm with split flags (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_split_flags.json" "beforeShellExecution" 2 "$REPO_DIR" "Blocked: recursive or forced delete of a root path"
 # One destructive flag is enough — `rm -f ~/.ssh/id_rsa` needs no -r to matter.
-run_test "rm with a single flag (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_single_flag.json" "beforeShellExecution" 2
+run_test "rm with a single flag (Block)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_single_flag.json" "beforeShellExecution" 2 "$REPO_DIR" "Blocked: recursive or forced delete of a root path"
 # Four literal forms that needed no shell syntax to get past the denylist. The
 # documented ceiling is shell syntax; these were plain commands.
-run_test "dd against a real device (Block)"   "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_dd_device.json"       "beforeShellExecution" 2
-run_test "rm with an -- separator (Block)"    "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_dashdash.json"    "beforeShellExecution" 2
-run_test "force push, short flag (Block)"     "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_push_short_flag.json" "beforeShellExecution" 2
-run_test "chmod with reordered args (Block)"  "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_chmod_reordered.json" "beforeShellExecution" 2
+run_test "dd against a real device (Block)"   "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_dd_device.json"       "beforeShellExecution" 2 "$REPO_DIR" "Blocked: raw disk write or filesystem format"
+run_test "rm with an -- separator (Block)"    "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_rm_dashdash.json"    "beforeShellExecution" 2 "$REPO_DIR" "Blocked: recursive or forced delete of a root path"
+run_test "force push, short flag (Block)"     "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_push_short_flag.json" "beforeShellExecution" 2 "$REPO_DIR" "Blocked: force push"
+run_test "chmod with reordered args (Block)"  "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_chmod_reordered.json" "beforeShellExecution" 2 "$REPO_DIR" "Blocked: recursive world-writable permissions"
 # A non-string field used to raise, and an exception exits 1, which blocks nowhere.
-run_test "argv-array command (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash_argv_array.json" "PreToolUse" 2
+run_test "argv-array command (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash_argv_array.json" "PreToolUse" 2 "$REPO_DIR" "Blocked: force push"
 run_test "Force push with lease (Allow)" "$ROOT_DIR/examples/payloads/cursor_beforeShellExecution_force_with_lease.json" "beforeShellExecution" 0
 # Documents a KNOWN GAP: variable expansion is not detected. If this ever
 # starts returning 2, the denylist got stronger — update guards.md's limits
@@ -171,8 +171,8 @@ run_test "rm through a variable — KNOWN GAP (Allow)" "$ROOT_DIR/examples/paylo
 # happened — it is the only exit code that shows stderr to the model, which is
 # the point: the agent that just wrote the key gets told about it.
 run_test "Key in written content, post event (Warn via 2)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PostToolUse" 2 "$REPO_DIR" "cannot be blocked"
-run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PreToolUse" 2
-run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2
+run_test "Key in written content, pre event (Block)" "$ROOT_DIR/examples/payloads/claude_PostToolUse_write_with_key.json" "PreToolUse" 2 "$REPO_DIR" "Blocked: Secret key pattern detected (AWS Access Key)"
+run_test "Unknown event still guards (Block)" "$ROOT_DIR/examples/payloads/claude_PreToolUse_bash.json" "SomeFutureEvent" 2 "$REPO_DIR" "Blocked: force push"
 run_test "Force push on a post event (Allow)" "$ROOT_DIR/examples/payloads/windsurf_pre_run_command_force_push.json" "post_run_command" 0
 run_symlink_tests
 
@@ -346,7 +346,7 @@ run_precommit_tests() {
 
   printf 'AKIAAAAAAAAAAAAAAAAA\n' > "$tmp/leak.txt"
   git -C "$tmp" add leak.txt
-  run_test "Staged secret blocks the commit (Block)" "$ROOT_DIR/examples/payloads/empty.json" "PreCommit" 2 "$tmp"
+  run_test "Staged secret blocks the commit (Block)" "$ROOT_DIR/examples/payloads/empty.json" "PreCommit" 2 "$tmp" "Blocked: Secret key pattern detected (AWS Access Key)"
 
   git -C "$tmp" reset -q
   printf 'hello world\n' > "$tmp/clean.txt"
