@@ -6,15 +6,17 @@ This guide explains how to test and debug agent hook scripts locally before depl
 
 ## 1. Testing Hooks via Terminal Piping (`stdin`)
 
-You can test any hook script directly in your terminal by piping sample JSON payloads to `stdin`:
+You can test any hook script directly in your terminal by piping sample JSON payloads to `stdin`. Run these from the **repository root**:
 
 ```bash
 # Test a clean shell command (should exit 0)
-python3 scripts/captain_hook.py dispatch beforeShellExecution < examples/payloads/cursor_beforeShellExecution_clean.json
+python3 skills/captain-hook/scripts/captain_hook.py dispatch beforeShellExecution \
+  < skills/captain-hook/examples/payloads/cursor_beforeShellExecution_clean.json
 echo $?  # Outputs: 0
 
-# Test a secret leak payload (should exit 2 and output error message to stderr)
-python3 scripts/captain_hook.py dispatch beforeShellExecution < examples/payloads/cursor_beforeShellExecution_secret.json
+# Test a secret leak payload (should exit 2, with an error on stderr)
+python3 skills/captain-hook/scripts/captain_hook.py dispatch beforeShellExecution \
+  < skills/captain-hook/examples/payloads/cursor_beforeShellExecution_secret.json
 echo $?  # Outputs: 2
 ```
 

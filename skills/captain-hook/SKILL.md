@@ -245,11 +245,11 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ---
 
-## 5. Verification, Security Catalogs & CI Integration
+## 4. Verification, Security Catalogs & CI Integration
 
 `captain-hook` includes automated testing and governance tools for production readiness before going public:
 
-- 🧪 **Automated Verification Suite (`scripts/verify_hooks.sh`)**: Runs the bundled reference dispatcher against sample `stdin` payloads and lints the shipped documentation and config templates for schema drift. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly (see [`references/debugging.md`](references/debugging.md)).
+- 🧪 **Automated Verification Suite (`skills/captain-hook/scripts/verify_hooks.sh`, from the repository root)**: Runs the bundled reference dispatcher against sample `stdin` payloads and lints the shipped documentation and config templates for schema drift. It verifies *this skill*, not your own hook scripts — to test yours, pipe a fixture from `examples/payloads/` into them directly (see [`references/debugging.md`](references/debugging.md)).
 - 📂 **Sample Payloads (`examples/payloads/`)**: Real-world JSON stdin payload files for testing `beforeShellExecution`, `PreToolUse`, and `pre_write_code`.
 - 🔒 **[Security & Rule Catalog](references/security_rules.md)** — Production-ready policy patterns (secret scanning, dangerous-command denylist, path-escape guard, MCP governance).
 - 🛠️ **[Interactive Debugging Guide](references/debugging.md)** — Step-by-step terminal piping and IDE log channel inspection guide.
@@ -259,7 +259,7 @@ Read the reference guides for full copy-pasteable script implementations:
 
 ---
 
-## 6. Complete Agent Specification Library (`references/specs/`)
+## 5. Complete Agent Specification Library (`references/specs/`)
 
 Every spec carries a `> Source:` line naming the upstream URL and the date it was last checked. The roster is split by what an agent can actually do.
 
@@ -284,7 +284,7 @@ Every spec carries a `> Source:` line naming the upstream URL and the date it wa
 
 ---
 
-## 7. Extending the Reference Dispatcher
+## 6. Extending the Reference Dispatcher
 
 `scripts/captain_hook.py` is a single ~120-line standalone script with no
 dependencies and no plugin system. You extend it by editing it. That is

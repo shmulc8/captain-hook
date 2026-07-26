@@ -140,6 +140,19 @@ def check_spec_provenance() -> list[str]:
     return failures
 
 
+def check_heading_sequence() -> list[str]:
+    """SKILL.md's numbered sections are 1..N with no gaps or duplicates.
+
+    A duplicate `## 6` survived several documentation commits and broke
+    in-page anchors; four lines of lint stop it recurring.
+    """
+    text = (SKILL_DIR / "SKILL.md").read_text()
+    nums = [int(m) for m in re.findall(r"^## (\d+)\.", text, re.M)]
+    if nums != list(range(1, len(nums) + 1)):
+        return [f"skills/captain-hook/SKILL.md: heading numbers are {nums}, expected 1..{len(nums)}"]
+    return []
+
+
 def check_relative_links() -> list[str]:
     """7. Every relative markdown link resolves to a file that exists."""
     failures = []
@@ -179,6 +192,7 @@ CHECKS = [
     ("No cross-project contamination", check_contamination),
     ("No invented Amazon Q blocking schema", check_amazon_q_schema),
     ("Agent specs cite a verified source", check_spec_provenance),
+    ("SKILL.md heading numbers are contiguous", check_heading_sequence),
     ("Relative markdown links resolve", check_relative_links),
     ("Fenced Python blocks compile", check_python_blocks),
 ]
